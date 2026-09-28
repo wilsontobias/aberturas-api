@@ -1,0 +1,47 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "API Sistema de Gestión de Pedidos de Aberturas",
+        "description": "API REST para gestionar los pedidos de una empresa de aberturas.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://127.0.0.1:8000",
+            "description": "Servidor local"
+        }
+    ],
+    "paths": {
+        "/api/provinces": {
+            "get": {
+                "tags": [
+                    "Provincias"
+                ],
+                "summary": "Listar provincias",
+                "description": "Devuelve todas las provincias ordenadas por nombre. No requiere token.",
+                "operationId": "85624171910502f5871da8213efcc4c7",
+                "responses": {
+                    "200": {
+                        "description": "Provincias obtenidas correctamente."
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "Token de autenticación generado por Laravel Sanctum.",
+                "bearerFormat": "Token Sanctum",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Provincias",
+            "description": "Provincias"
+        }
+    ]
+}
