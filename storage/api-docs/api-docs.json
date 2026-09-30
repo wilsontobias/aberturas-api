@@ -86,6 +86,102 @@
                 }
             }
         },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Autenticación"
+                ],
+                "summary": "Iniciar sesión",
+                "description": "Verifica email y contraseña y devuelve un token de acceso de Sanctum.",
+                "operationId": "a3b306d14572d1f4bd6c064b3233e7b8",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "superadmin@aberturas.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "SuperAdmin123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login exitoso."
+                    },
+                    "401": {
+                        "description": "Las credenciales proporcionadas son incorrectas."
+                    },
+                    "403": {
+                        "description": "El usuario está desactivado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                }
+            }
+        },
+        "/api/me": {
+            "get": {
+                "tags": [
+                    "Autenticación"
+                ],
+                "summary": "Ver mis datos",
+                "description": "Devuelve los datos del usuario dueño del token, con su rol, tipo y perfil.",
+                "operationId": "9d9bc556f927575aa492a88c28fe5908",
+                "responses": {
+                    "200": {
+                        "description": "Datos del usuario obtenidos correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Autenticación"
+                ],
+                "summary": "Cerrar sesión",
+                "description": "Elimina el token con el que se hizo el pedido. Después de esto, ese token deja de servir.",
+                "operationId": "fe8f3429cd6979b3b4517e186505f9f9",
+                "responses": {
+                    "200": {
+                        "description": "Sesión cerrada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/localities": {
             "get": {
                 "tags": [
