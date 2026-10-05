@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserPermission;
 use App\Models\UserType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +102,8 @@ class AuthController extends Controller
                 'phone_2' => $validated['phone_2'],
             ]);
 
+            $user->userPermission()->create(UserPermission::defaultsFor('customer'));
+
             return $user;
         });
 
@@ -194,7 +197,8 @@ class AuthController extends Controller
         $user = $request->user()->load(
             'userRole.role',
             'userRole.userType',
-            'customerProfile.locality.province'
+            'customerProfile.locality.province',
+            'userPermission'
         );
 
         return response()->json([

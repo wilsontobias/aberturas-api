@@ -241,6 +241,681 @@
                 }
             }
         },
+        "/api/materials": {
+            "get": {
+                "tags": [
+                    "Materiales"
+                ],
+                "summary": "Listar materiales",
+                "description": "Devuelve los materiales activos ordenados por nombre. No requiere token.",
+                "operationId": "0821961cdcf7173ea92453089dd0a172",
+                "responses": {
+                    "200": {
+                        "description": "Materiales obtenidos correctamente."
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Materiales"
+                ],
+                "summary": "Crear material",
+                "description": "Crea un material nuevo. Solo administradores.",
+                "operationId": "6cd77951b1448e367c3069ed6687379c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Acero inoxidable",
+                                        "maxLength": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Material creado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/materials/{id}": {
+            "put": {
+                "tags": [
+                    "Materiales"
+                ],
+                "summary": "Editar material",
+                "description": "Cambia el nombre de un material o lo vuelve a activar. Solo administradores.",
+                "operationId": "182f62eb940ca7d446499048c5ef7047",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del material",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Aluminio anodizado",
+                                        "maxLength": 100
+                                    },
+                                    "status": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Material actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Material no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Materiales"
+                ],
+                "summary": "Desactivar material",
+                "description": "Desactiva un material (no lo borra). Solo administradores.",
+                "operationId": "0fa788a436a67a78b74e4da4e847c697",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del material",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Material desactivado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Material no encontrado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/categories": {
+            "get": {
+                "tags": [
+                    "Categorías"
+                ],
+                "summary": "Listar categorías",
+                "description": "Devuelve las categorías activas ordenadas por nombre. No requiere token.",
+                "operationId": "ef13f6e372e5ab339e1180104b338809",
+                "responses": {
+                    "200": {
+                        "description": "Categorías obtenidas correctamente."
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Categorías"
+                ],
+                "summary": "Crear categoría",
+                "description": "Crea una categoría nueva. Solo administradores.",
+                "operationId": "897e4608beae455e11f07bf62c0795b7",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Mamparas",
+                                        "maxLength": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Categoría creada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/categories/{id}": {
+            "put": {
+                "tags": [
+                    "Categorías"
+                ],
+                "summary": "Editar categoría",
+                "description": "Cambia el nombre de una categoría o la vuelve a activar. Solo administradores.",
+                "operationId": "50204f4a6e2b8d4cfb73679514fa1f6b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la categoría",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Ventanas corredizas",
+                                        "maxLength": 100
+                                    },
+                                    "status": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Categoría actualizada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Categoría no encontrada."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Categorías"
+                ],
+                "summary": "Desactivar categoría",
+                "description": "Desactiva una categoría (no la borra). Solo administradores.",
+                "operationId": "7f6d0695642fc7ec4349a20d0f447037",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la categoría",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Categoría desactivada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Categoría no encontrada."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/products": {
+            "get": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Ver el catálogo",
+                "description": "Devuelve los productos activos con su categoría, material y disponibilidad. Se puede filtrar por stock y por categoría. No requiere token.",
+                "operationId": "1bfaa78d1c2c3848ab8165c5dadcad3e",
+                "parameters": [
+                    {
+                        "name": "in_stock",
+                        "in": "query",
+                        "description": "Enviar 1 para ver solo los productos con stock",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                0,
+                                1
+                            ]
+                        }
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "description": "ID de la categoría para filtrar",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Productos obtenidos correctamente."
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Crear producto",
+                "description": "Crea un producto nuevo en el catálogo. Solo administradores.",
+                "operationId": "e8185e307706e2cd84bbcf5171e2f09d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "category_id",
+                                    "material_id",
+                                    "name",
+                                    "width_cm",
+                                    "height_cm",
+                                    "price",
+                                    "stock"
+                                ],
+                                "properties": {
+                                    "category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "material_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Ventana batiente de aluminio",
+                                        "maxLength": 150
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Ventana de una hoja con vidrio simple.",
+                                        "nullable": true
+                                    },
+                                    "width_cm": {
+                                        "type": "integer",
+                                        "example": 60,
+                                        "minimum": 1
+                                    },
+                                    "height_cm": {
+                                        "type": "integer",
+                                        "example": 90,
+                                        "minimum": 1
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "example": "Blanco",
+                                        "nullable": true
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "example": 95000.5,
+                                        "minimum": 0
+                                    },
+                                    "stock": {
+                                        "type": "integer",
+                                        "example": 5,
+                                        "minimum": 0
+                                    },
+                                    "image": {
+                                        "type": "string",
+                                        "example": "https://ejemplo.com/ventana.jpg",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Producto creado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}": {
+            "get": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Ver un producto",
+                "description": "Devuelve un producto activo con su categoría y material. No requiere token.",
+                "operationId": "7ab21ddb713501f3d4c2914892c02a21",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Producto obtenido correctamente."
+                    },
+                    "404": {
+                        "description": "Producto no encontrado."
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Editar producto",
+                "description": "Modifica los datos de un producto o lo vuelve a activar. Solo se cambian los campos enviados. Solo administradores.",
+                "operationId": "6a7e11900844cd85cff66e662b82bd4c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Ventana corrediza de aluminio reforzada"
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "example": 195000
+                                    },
+                                    "status": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Producto actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Producto no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Desactivar producto",
+                "description": "Desactiva un producto (no lo borra): deja de aparecer en el catálogo. Solo administradores.",
+                "operationId": "e80a6ca46716acee6b47ea1ac91663c0",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Producto desactivado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Producto no encontrado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/stock": {
+            "patch": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Actualizar el stock",
+                "description": "Cambia solo la cantidad en stock de un producto. Solo administradores.",
+                "operationId": "9125bb230e24b2044cff05ec49c3de90",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 3
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "stock"
+                                ],
+                                "properties": {
+                                    "stock": {
+                                        "type": "integer",
+                                        "example": 8,
+                                        "minimum": 0
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Stock actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Producto no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/provinces": {
             "get": {
                 "tags": [
@@ -254,6 +929,134 @@
                         "description": "Provincias obtenidas correctamente."
                     }
                 }
+            }
+        },
+        "/api/users/{id}/permissions": {
+            "get": {
+                "tags": [
+                    "Permisos"
+                ],
+                "summary": "Ver los permisos de un usuario",
+                "description": "Devuelve los permisos individuales de un usuario operativo (cliente o vendedor). Solo administradores.",
+                "operationId": "a28653de000e844fcdfc18f25d08228d",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Permisos obtenidos correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "El usuario no es un usuario operativo."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Permisos"
+                ],
+                "summary": "Cambiar los permisos de un usuario",
+                "description": "Activa o desactiva permisos de un usuario operativo. Solo se cambian los permisos enviados. Solo administradores.",
+                "operationId": "1c9ce825a423c3c15ae646cd1e08106f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "create_orders": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "view_own_orders": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "view_all_orders": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "verify_payments": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "update_item_status": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "edit_ship_date": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "register_balance_payment": {
+                                        "type": "boolean",
+                                        "example": false
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Permisos actualizados correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         }
     },
@@ -277,8 +1080,24 @@
             "description": "Localidades"
         },
         {
+            "name": "Materiales",
+            "description": "Materiales"
+        },
+        {
+            "name": "Categorías",
+            "description": "Categorías"
+        },
+        {
+            "name": "Productos",
+            "description": "Productos"
+        },
+        {
             "name": "Provincias",
             "description": "Provincias"
+        },
+        {
+            "name": "Permisos",
+            "description": "Permisos"
         }
     ]
 }

@@ -13,6 +13,9 @@ class DatabaseSeeder extends Seeder
             UserTypeSeeder::class,
             LocalitySeeder::class,
             SuperAdminSeeder::class,
+            ProductCategorySeeder::class,
+            MaterialSeeder::class,
+            ProductSeeder::class,
         ]);
     }
 }

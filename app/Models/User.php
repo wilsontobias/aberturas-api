@@ -40,4 +40,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(CustomerProfile::class);
     }
+
+    public function userPermission(): HasOne
+    {
+        return $this->hasOne(UserPermission::class);
+    }
 }
