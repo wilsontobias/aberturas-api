@@ -931,6 +931,335 @@
                 }
             }
         },
+        "/api/users": {
+            "get": {
+                "tags": [
+                    "Usuarios"
+                ],
+                "summary": "Listar usuarios",
+                "description": "Devuelve los usuarios con su rol, tipo y estado. Se puede filtrar por rol, tipo y estado. Solo administradores.",
+                "operationId": "c457726701591d1183b53aa71fc13441",
+                "parameters": [
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "description": "Filtrar por rol",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "SuperAdmin",
+                                "Administrator",
+                                "OperationalUser"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Filtrar por tipo de usuario",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "customer",
+                                "seller"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "1 para ver solo los activos, 0 para ver solo los desactivados",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                0,
+                                1
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Usuarios obtenidos correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "422": {
+                        "description": "Los filtros no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/users/{id}": {
+            "get": {
+                "tags": [
+                    "Usuarios"
+                ],
+                "summary": "Ver un usuario",
+                "description": "Devuelve un usuario con su rol, tipo, estado, perfil y permisos. Solo administradores.",
+                "operationId": "36a33ff774d5cba33c039dec2c3e0287",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Usuario obtenido correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Usuarios"
+                ],
+                "summary": "Editar un cliente o vendedor",
+                "description": "Corrige los datos de un cliente o vendedor. Solo se cambian los campos enviados. Solo administradores.",
+                "operationId": "b9091397c8b25f12c6adb74be6ce3a5a",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Juan",
+                                        "maxLength": 100
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Pérez",
+                                        "maxLength": 100
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "juan@ejemplo.com"
+                                    },
+                                    "locality_id": {
+                                        "type": "integer",
+                                        "example": 2
+                                    },
+                                    "phone_1": {
+                                        "type": "string",
+                                        "example": "3454111111",
+                                        "maxLength": 30
+                                    },
+                                    "phone_2": {
+                                        "type": "string",
+                                        "example": "3454222222",
+                                        "maxLength": 30
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Usuario actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/users/{id}/status": {
+            "patch": {
+                "tags": [
+                    "Usuarios"
+                ],
+                "summary": "Activar o desactivar un cliente o vendedor",
+                "description": "Cambia el estado de un cliente o vendedor. Un usuario desactivado no se borra, pero no puede iniciar sesión. Solo administradores.",
+                "operationId": "4daeabd32863e1cdf365ae33124d44a9",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "boolean",
+                                        "example": false
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Estado actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/users/{id}/type": {
+            "patch": {
+                "tags": [
+                    "Usuarios"
+                ],
+                "summary": "Convertir un cliente en vendedor o al revés",
+                "description": "Cambia el tipo de un usuario operativo y le carga los permisos por defecto del nuevo tipo. Nadie puede cambiarse el tipo a sí mismo. Solo administradores.",
+                "operationId": "0f5b86e8acdc253cc3083d01ea6bf2b6",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "type"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "example": "seller",
+                                        "enum": [
+                                            "customer",
+                                            "seller"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Tipo de usuario actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/users/{id}/permissions": {
             "get": {
                 "tags": [
@@ -1094,6 +1423,10 @@
         {
             "name": "Provincias",
             "description": "Provincias"
+        },
+        {
+            "name": "Usuarios",
+            "description": "Usuarios"
         },
         {
             "name": "Permisos",

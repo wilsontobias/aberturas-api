@@ -6,6 +6,7 @@ use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProvinceController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserPermissionController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,7 +41,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
         Route::put('/products/{id}', [ProductController::class, 'update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-                Route::patch('/products/{id}/stock', [ProductController::class, 'updateStock']);
+        Route::patch('/products/{id}/stock', [ProductController::class, 'updateStock']);
+
+        Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/{id}', [UserController::class, 'show']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::patch('/users/{id}/status', [UserController::class, 'updateStatus']);
+        Route::patch('/users/{id}/type', [UserController::class, 'changeType']);
 
         Route::get('/users/{id}/permissions', [UserPermissionController::class, 'show']);
         Route::put('/users/{id}/permissions', [UserPermissionController::class, 'update']);
