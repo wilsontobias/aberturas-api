@@ -160,23 +160,27 @@ class UserController extends Controller
             ], 403);
         }
 
-        try {
-            $validated = $request->validate([
-                'first_name' => ['sometimes', 'string', 'max:100'],
-                'last_name' => ['sometimes', 'string', 'max:100'],
+            try {
+                $validated = $request->validate([
+                'first_name' => ['sometimes', 'string', 'max:100', 'regex:/^[\pL\s\'-]+$/u'],
+                'last_name' => ['sometimes', 'string', 'max:100', 'regex:/^[\pL\s\'-]+$/u'],
                 'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
                 'locality_id' => ['sometimes', 'integer', Rule::exists('localities', 'id')->where('status', true)],
-                'phone_1' => ['sometimes', 'string', 'max:30'],
-                'phone_2' => ['sometimes', 'string', 'max:30'],
+                'phone_1' => ['sometimes', 'string', 'max:30', 'regex:/^[0-9\s()+-]+$/'],
+                'phone_2' => ['sometimes', 'string', 'max:30', 'regex:/^[0-9\s()+-]+$/'],
             ], [
                 'first_name.max' => 'El nombre no puede superar los 100 caracteres.',
+                'first_name.regex' => 'El nombre solo puede contener letras, espacios, apóstrofos y guiones.',
                 'last_name.max' => 'El apellido no puede superar los 100 caracteres.',
+                'last_name.regex' => 'El apellido solo puede contener letras, espacios, apóstrofos y guiones.',
                 'email.email' => 'El correo electrónico no es válido.',
                 'email.unique' => 'El correo electrónico ya está registrado.',
                 'locality_id.integer' => 'La localidad debe ser un número.',
                 'locality_id.exists' => 'La localidad seleccionada no existe o no está activa.',
                 'phone_1.max' => 'El teléfono 1 no puede superar los 30 caracteres.',
+                'phone_1.regex' => 'El teléfono 1 solo puede contener números, espacios, paréntesis, + y -.',
                 'phone_2.max' => 'El teléfono 2 no puede superar los 30 caracteres.',
+                'phone_2.regex' => 'El teléfono 2 solo puede contener números, espacios, paréntesis, + y -.',
             ]);
         } catch (ValidationException $e) {
             return response()->json([
