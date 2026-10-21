@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LocalityController;
 use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProvinceController;
@@ -28,6 +29,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // Pedidos
+    Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:create_orders');
+    Route::get('/orders/my', [OrderController::class, 'myOrders']);
+    Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id');
+
     // Solo administradores (el SuperAdmin pasa siempre)
     Route::middleware('role:Administrator')->group(function () {
         Route::post('/categories', [ProductCategoryController::class, 'store']);
@@ -51,5 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/users/{id}/permissions', [UserPermissionController::class, 'show']);
         Route::put('/users/{id}/permissions', [UserPermissionController::class, 'update']);
+
+        Route::get('/orders', [OrderController::class, 'index']);
     });
 });

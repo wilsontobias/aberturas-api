@@ -130,6 +130,12 @@ class UserPermissionController extends Controller
             UserPermission::defaultsFor($user->userRole->userType->name)
         );
 
+        if (empty($validated)) {
+            return response()->json([
+                'message' => 'No se envió ningún dato para actualizar.',
+            ], 422);
+        }
+
         $permissions->update($validated);
 
         return response()->json([

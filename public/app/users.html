@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Usuarios - Aberturas</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <nav id="nav"></nav>
+
+    <h1>Usuarios</h1>
+
+    <label>Tipo
+        <select id="type" onchange="loadUsers()">
+            <option value="">Todos</option>
+            <option value="customer">Clientes</option>
+            <option value="seller">Vendedores</option>
+        </select>
+    </label>
+    <label>Estado
+        <select id="status" onchange="loadUsers()">
+            <option value="">Todos</option>
+            <option value="1">Activos</option>
+            <option value="0">Desactivados</option>
+        </select>
+    </label>
+
+    <div id="message"></div>
+
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Tipo</th><th>Estado</th><th>Acciones</th></tr>
+        </thead>
+        <tbody id="users-table"></tbody>
+    </table>
+
+    <h3>Última respuesta de la API</h3>
+    <pre id="response"></pre>
+
+    <script src="js/api.js"></script>
+    <script>
+        requireLogin();
+        renderNav();
+        loadUsers();
+
+        async function loadUsers() {
+            const params = new URLSearchParams();
+            const type = document.getElementById('type').value;
+            const status = document.getElementById('status').value;
+
+            if (type) {
+                params.append('type', type);
+            }
+
+            if (status) {
+                params.append('status', status);
+            }
+
+            const result = await api('GET', '/users?' + params.toString());
+            const table = document.getElementById('users-table');
+            table.innerHTML = '';
+
+            if (!result.ok) {
+                showMessage('message', result);
+                return;
+            }
+
+            for (const user of result.data.users) {
+                const role = user.user_role ? user.user_role.role.name : '-';
+                const userType = user.user_role && user.user_role.user_type ? user.user_role.user_type.name : '-';
+                const active = user.user_role ? user.user_role.status : false;
+
+                const row = document.createElement('tr');
+                addCell(row, user.id);
+                addCell(row, user.name);
+                addCell(row, user.email);
+                addCell(row, role);
+                addCell(row, userType);
+                addCell(row, active ? 'Activo' : 'Desactivado');
+
+                const actions = addCell(row, '');
+
+                if (role === 'OperationalUser') {
+                    const statusButton = document.createElement('button');
+                    statusButton.textContent = active ? 'Desactivar' : 'Activar';
+                    statusButton.onclick = function () {
+                        changeUser(user.id, '/status', { status: !active });
+                    };
+                    actions.appendChild(statusButton);
+
+                    const typeButton = document.createElement('button');
+                    typeButton.textContent = userType === 'customer' ? 'Hacer vendedor' : 'Hacer cliente';
+                    typeButton.onclick = function () {
+                        changeUser(user.id, '/type', { type: userType === 'customer' ? 'seller' : 'customer' });
+                    };
+                    actions.appendChild(typeButton);
+                }
+
+                table.appendChild(row);
+            }
+        }
+
+        async function changeUser(id, action, body) {
+            const result = await api('PATCH', '/users/' + id + action, body);
+            showMessage('message', result);
+            loadUsers();
+        }
+    </script>
+</body>
+</html>

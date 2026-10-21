@@ -1,0 +1,10 @@
+body { font-family: sans-serif; max-width: 900px; margin: 0 auto; padding: 0 10px 20px; }
+nav { background: #2d4a6b; padding: 10px; margin-bottom: 20px; }
+nav a, nav span { color: white; margin-right: 15px; text-decoration: none; }
+nav button { float: right; }
+form { display: flex; flex-direction: column; max-width: 350px; gap: 8px; }
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 4px; text-align: left; }
+.error { color: #b00020; }
+.ok { color: #1b6e20; }
+pre { background: #f4f4f4; padding: 10px; overflow: auto; max-height: 250px; font-size: 12px; }

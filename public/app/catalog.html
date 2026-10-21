@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Catálogo - Aberturas</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <nav id="nav"></nav>
+
+    <h1>Catálogo</h1>
+
+    <label>Categoría
+        <select id="category" onchange="loadProducts()">
+            <option value="">Todas</option>
+        </select>
+    </label>
+    <label><input id="in-stock" type="checkbox" onchange="loadProducts()"> Solo con stock</label>
+
+    <table>
+        <thead>
+            <tr><th>Nombre</th><th>Categoría</th><th>Material</th><th>Medidas</th><th>Precio</th><th>Disponibilidad</th></tr>
+        </thead>
+        <tbody id="products-table"></tbody>
+    </table>
+
+    <h3>Última respuesta de la API</h3>
+    <pre id="response"></pre>
+
+    <script src="js/api.js"></script>
+    <script>
+        renderNav();
+        loadCategories();
+        loadProducts();
+
+        async function loadCategories() {
+            const result = await api('GET', '/categories');
+            const select = document.getElementById('category');
+
+            for (const category of result.data.categories) {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.name;
+                select.appendChild(option);
+            }
+        }
+
+        async function loadProducts() {
+            const params = new URLSearchParams();
+            const categoryId = document.getElementById('category').value;
+
+            if (categoryId) {
+                params.append('category_id', categoryId);
+            }
+
+            if (document.getElementById('in-stock').checked) {
+                params.append('in_stock', '1');
+            }
+
+            const result = await api('GET', '/products?' + params.toString());
+            const table = document.getElementById('products-table');
+            table.innerHTML = '';
+
+            if (!result.ok) {
+                return;
+            }
+
+            for (const product of result.data.products) {
+                const row = document.createElement('tr');
+                addCell(row, product.name);
+                addCell(row, product.category.name);
+                addCell(row, product.material.name);
+                addCell(row, product.width_cm + ' x ' + product.height_cm + ' cm');
+                addCell(row, '$' + product.price);
+                addCell(row, product.availability);
+                table.appendChild(row);
+            }
+        }
+    </script>
+</body>
+</html>

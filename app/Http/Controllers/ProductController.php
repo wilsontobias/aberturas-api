@@ -27,6 +27,8 @@ class ProductController extends Controller
     {
         $query = Product::with('category:id,name', 'material:id,name')
             ->where('status', true)
+            ->whereHas('category', fn ($q) => $q->where('status', true))
+            ->whereHas('material', fn ($q) => $q->where('status', true))
             ->orderBy('name');
 
         if ($request->boolean('in_stock')) {
@@ -60,6 +62,8 @@ class ProductController extends Controller
     {
         $product = Product::with('category:id,name', 'material:id,name')
             ->where('status', true)
+            ->whereHas('category', fn ($q) => $q->where('status', true))
+            ->whereHas('material', fn ($q) => $q->where('status', true))
             ->find($id);
 
         if (!$product) {
@@ -190,6 +194,12 @@ class ProductController extends Controller
             return response()->json([
                 'message' => 'Los datos proporcionados no son válidos.',
                 'errors' => $e->errors(),
+            ], 422);
+        }
+
+        if (empty($validated)) {
+            return response()->json([
+                'message' => 'No se envió ningún dato para actualizar.',
             ], 422);
         }
 

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registrarse - Aberturas</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <nav id="nav"></nav>
+
+    <h1>Registrarse como cliente</h1>
+
+    <form onsubmit="doRegister(event)">
+        <label>Nombre <input id="first_name" required></label>
+        <label>Apellido <input id="last_name" required></label>
+        <label>Email <input id="email" type="email" required></label>
+        <label>Contraseña (mínimo 8) <input id="password" type="password" required></label>
+        <label>Provincia
+            <select id="province" onchange="loadLocalities()" required>
+                <option value="">Elegí una provincia</option>
+            </select>
+        </label>
+        <label>Localidad
+            <select id="locality_id" required>
+                <option value="">Primero elegí la provincia</option>
+            </select>
+        </label>
+        <label>Teléfono 1 <input id="phone_1" required></label>
+        <label>Teléfono 2 <input id="phone_2" required></label>
+        <button type="submit">Crear cuenta</button>
+    </form>
+
+    <div id="message"></div>
+
+    <h3>Última respuesta de la API</h3>
+    <pre id="response"></pre>
+
+    <script src="js/api.js"></script>
+    <script>
+        renderNav();
+        loadProvinces();
+
+        async function loadProvinces() {
+            const result = await api('GET', '/provinces');
+            const select = document.getElementById('province');
+
+            for (const province of result.data.provinces) {
+                const option = document.createElement('option');
+                option.value = province.id;
+                option.textContent = province.name;
+                select.appendChild(option);
+            }
+        }
+
+        async function loadLocalities() {
+            const provinceId = document.getElementById('province').value;
+            const select = document.getElementById('locality_id');
+            select.innerHTML = '<option value="">Elegí una localidad</option>';
+
+            if (!provinceId) {
+                return;
+            }
+
+            const result = await api('GET', '/localities?province_id=' + provinceId);
+
+            for (const locality of result.data.localities) {
+                const option = document.createElement('option');
+                option.value = locality.id;
+                option.textContent = locality.name;
+                select.appendChild(option);
+            }
+        }
+
+        async function doRegister(event) {
+            event.preventDefault();
+
+            const result = await api('POST', '/register', {
+                first_name: document.getElementById('first_name').value,
+                last_name: document.getElementById('last_name').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                locality_id: Number(document.getElementById('locality_id').value),
+                phone_1: document.getElementById('phone_1').value,
+                phone_2: document.getElementById('phone_2').value,
+            });
+
+            showMessage('message', result);
+
+            if (result.ok) {
+                saveSession(result.data.access_token, result.data.user);
+                window.location.href = 'catalog.html';
+            }
+        }
+    </script>
+</body>
+</html>

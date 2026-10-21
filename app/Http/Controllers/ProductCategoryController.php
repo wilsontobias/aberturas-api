@@ -138,6 +138,12 @@ class ProductCategoryController extends Controller
             ], 422);
         }
 
+        if (empty($validated)) {
+            return response()->json([
+                'message' => 'No se envió ningún dato para actualizar.',
+            ], 422);
+        }
+
         $category->update($validated);
 
         return response()->json([

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Iniciar sesión - Aberturas</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <nav id="nav"></nav>
+
+    <h1>Iniciar sesión</h1>
+
+    <form onsubmit="doLogin(event)">
+        <label>Email <input id="email" type="email" required></label>
+        <label>Contraseña <input id="password" type="password" required></label>
+        <button type="submit">Entrar</button>
+    </form>
+
+    <div id="message"></div>
+
+    <p>¿No tenés cuenta? <a href="register.html">Registrate</a></p>
+
+    <h3>Última respuesta de la API</h3>
+    <pre id="response"></pre>
+
+    <script src="js/api.js"></script>
+    <script>
+        renderNav();
+
+        async function doLogin(event) {
+            event.preventDefault();
+
+            const result = await api('POST', '/login', {
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+            });
+
+            showMessage('message', result);
+
+            if (result.ok) {
+                saveSession(result.data.access_token, result.data.user);
+                window.location.href = 'catalog.html';
+            }
+        }
+    </script>
+</body>
+</html>
