@@ -31,8 +31,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Pedidos
     Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:create_orders');
-    Route::get('/orders/my', [OrderController::class, 'myOrders']);
+    Route::get('/orders/my', [OrderController::class, 'myOrders'])->middleware('permission:view_own_orders');
     Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id');
+    Route::get('/orders', [OrderController::class, 'index'])->middleware('permission:view_all_orders');
+    Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id')->middleware('permission:update_item_status');
+    Route::patch('/orders/{id}/cancel', [OrderController::class, 'cancel'])->whereNumber('id');
 
     // Solo administradores (el SuperAdmin pasa siempre)
     Route::middleware('role:Administrator')->group(function () {
@@ -57,7 +60,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/users/{id}/permissions', [UserPermissionController::class, 'show']);
         Route::put('/users/{id}/permissions', [UserPermissionController::class, 'update']);
-
-        Route::get('/orders', [OrderController::class, 'index']);
     });
 });

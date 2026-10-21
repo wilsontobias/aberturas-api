@@ -415,7 +415,7 @@
                     "Pedidos"
                 ],
                 "summary": "Listar todos los pedidos",
-                "description": "Devuelve todos los pedidos, con filtro opcional por estado. Solo administradores.",
+                "description": "Devuelve todos los pedidos, con filtro opcional por estado. Administradores o vendedores con el permiso view_all_orders.",
                 "operationId": "2cd7e03021e72d9d799c12dfe179c865",
                 "parameters": [
                     {
@@ -550,7 +550,7 @@
                     "Pedidos"
                 ],
                 "summary": "Ver un pedido",
-                "description": "Devuelve un pedido con sus productos. Lo puede ver su dueño o un administrador.",
+                "description": "Devuelve un pedido con sus productos. Lo puede ver su dueño, un administrador o un vendedor con el permiso view_all_orders.",
                 "operationId": "c29621029e70f65247909d3e09031118",
                 "parameters": [
                     {
@@ -577,6 +577,123 @@
                     },
                     "404": {
                         "description": "Pedido no encontrado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{id}/status": {
+            "patch": {
+                "tags": [
+                    "Pedidos"
+                ],
+                "summary": "Cambiar el estado de un pedido",
+                "description": "Avanza el pedido por los estados permitidos. Si se cancela, devuelve el stock de los productos que salieron del stock. Administradores o vendedores con el permiso update_item_status.",
+                "operationId": "cbee5c99370628f7a4a9e10c9efcca5c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "confirmed",
+                                        "enum": [
+                                            "confirmed",
+                                            "in_production",
+                                            "ready",
+                                            "shipped",
+                                            "delivered",
+                                            "cancelled"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Estado del pedido actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    },
+                    "422": {
+                        "description": "Estado inválido o cambio no permitido."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{id}/cancel": {
+            "patch": {
+                "tags": [
+                    "Pedidos"
+                ],
+                "summary": "Cancelar mi pedido",
+                "description": "El cliente cancela su propio pedido, solo si todavía está pendiente. Devuelve el stock.",
+                "operationId": "334860e4bcdaa0db54c10ea6983e82a2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pedido cancelado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "Solo podés cancelar tus propios pedidos."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    },
+                    "422": {
+                        "description": "Solo se pueden cancelar pedidos pendientes."
                     }
                 },
                 "security": [

@@ -16,6 +16,16 @@ class OrderController extends Controller
     private const DEPOSIT_IN_STOCK = 10;
     private const DEPOSIT_MANUFACTURING = 50;
 
+    private const TRANSITIONS = [
+        'pending' => ['confirmed', 'cancelled'],
+        'confirmed' => ['in_production', 'ready', 'cancelled'],
+        'in_production' => ['ready', 'cancelled'],
+        'ready' => ['shipped', 'cancelled'],
+        'shipped' => ['delivered'],
+        'delivered' => [],
+        'cancelled' => [],
+    ];
+
     #[OA\Post(
         path: '/api/orders',
         summary: 'Crear pedido',
@@ -177,7 +187,7 @@ class OrderController extends Controller
     #[OA\Get(
         path: '/api/orders/{id}',
         summary: 'Ver un pedido',
-        description: 'Devuelve un pedido con sus productos. Lo puede ver su dueño o un administrador.',
+        description: 'Devuelve un pedido con sus productos. Lo puede ver su dueño, un administrador o un vendedor con el permiso view_all_orders.',
         tags: ['Pedidos'],
         security: [['sanctum' => []]],
         parameters: [
@@ -201,10 +211,9 @@ class OrderController extends Controller
             ], 404);
         }
 
-        $viewer = $request->user()->load('userRole.role');
-        $isAdmin = in_array($viewer->userRole?->role?->name, ['SuperAdmin', 'Administrator'], true);
+        $viewer = $request->user();
 
-        if ($order->user_id !== $viewer->id && !$isAdmin) {
+        if ($order->user_id !== $viewer->id && !$this->canViewAll($viewer)) {
             return response()->json([
                 'message' => 'No podés ver pedidos de otros usuarios.',
             ], 403);
@@ -219,7 +228,7 @@ class OrderController extends Controller
     #[OA\Get(
         path: '/api/orders',
         summary: 'Listar todos los pedidos',
-        description: 'Devuelve todos los pedidos, con filtro opcional por estado. Solo administradores.',
+        description: 'Devuelve todos los pedidos, con filtro opcional por estado. Administradores o vendedores con el permiso view_all_orders.',
         tags: ['Pedidos'],
         security: [['sanctum' => []]],
         parameters: [
@@ -259,6 +268,154 @@ class OrderController extends Controller
             'message' => 'Pedidos obtenidos correctamente.',
             'orders' => $query->get(),
         ], 200);
+    }
+
+    #[OA\Patch(
+        path: '/api/orders/{id}/status',
+        summary: 'Cambiar el estado de un pedido',
+        description: 'Avanza el pedido por los estados permitidos. Si se cancela, devuelve el stock de los productos que salieron del stock. Administradores o vendedores con el permiso update_item_status.',
+        tags: ['Pedidos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', description: 'ID del pedido', in: 'path', required: true, schema: new OA\Schema(type: 'integer', minimum: 1), example: 1),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['status'],
+                properties: [
+                    new OA\Property(property: 'status', type: 'string', enum: ['confirmed', 'in_production', 'ready', 'shipped', 'delivered', 'cancelled'], example: 'confirmed'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Estado del pedido actualizado correctamente.'),
+            new OA\Response(response: 401, description: 'No estás autenticado.'),
+            new OA\Response(response: 403, description: 'No tenés permiso para realizar esta acción.'),
+            new OA\Response(response: 404, description: 'Pedido no encontrado.'),
+            new OA\Response(response: 422, description: 'Estado inválido o cambio no permitido.'),
+        ]
+    )]
+    public function updateStatus(Request $request, string $id)
+    {
+        $order = Order::with('status', 'items')->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Pedido no encontrado.',
+            ], 404);
+        }
+
+        try {
+            $validated = $request->validate([
+                'status' => ['required', 'string', Rule::exists('order_statuses', 'name')],
+            ], [
+                'status.required' => 'El estado es obligatorio.',
+                'status.exists' => 'El estado indicado no existe.',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Los datos proporcionados no son válidos.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        $current = $order->status->name;
+        $new = $validated['status'];
+        $allowed = self::TRANSITIONS[$current] ?? [];
+
+        if (!in_array($new, $allowed, true)) {
+            return response()->json([
+                'message' => "No se puede pasar un pedido de {$current} a {$new}.",
+                'allowed' => $allowed,
+            ], 422);
+        }
+
+        DB::transaction(function () use ($order, $new) {
+            if ($new === 'cancelled') {
+                $this->restoreStock($order);
+            }
+
+            $order->update([
+                'order_status_id' => OrderStatus::where('name', $new)->value('id'),
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Estado del pedido actualizado correctamente.',
+            'order' => $order->fresh()->load('status', 'items.product:id,name'),
+        ], 200);
+    }
+
+    #[OA\Patch(
+        path: '/api/orders/{id}/cancel',
+        summary: 'Cancelar mi pedido',
+        description: 'El cliente cancela su propio pedido, solo si todavía está pendiente. Devuelve el stock.',
+        tags: ['Pedidos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', description: 'ID del pedido', in: 'path', required: true, schema: new OA\Schema(type: 'integer', minimum: 1), example: 1),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pedido cancelado correctamente.'),
+            new OA\Response(response: 401, description: 'No estás autenticado.'),
+            new OA\Response(response: 403, description: 'Solo podés cancelar tus propios pedidos.'),
+            new OA\Response(response: 404, description: 'Pedido no encontrado.'),
+            new OA\Response(response: 422, description: 'Solo se pueden cancelar pedidos pendientes.'),
+        ]
+    )]
+    public function cancel(Request $request, string $id)
+    {
+        $order = Order::with('status', 'items')->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Pedido no encontrado.',
+            ], 404);
+        }
+
+        if ($order->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Solo podés cancelar tus propios pedidos.',
+            ], 403);
+        }
+
+        if ($order->status->name !== 'pending') {
+            return response()->json([
+                'message' => 'Solo se pueden cancelar pedidos pendientes. Para otros casos, contactá a la empresa.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($order) {
+            $this->restoreStock($order);
+
+            $order->update([
+                'order_status_id' => OrderStatus::where('name', 'cancelled')->value('id'),
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Pedido cancelado correctamente.',
+            'order' => $order->fresh()->load('status', 'items.product:id,name'),
+        ], 200);
+    }
+
+    private function restoreStock(Order $order): void
+    {
+        foreach ($order->items as $item) {
+            if ($item->from_stock) {
+                Product::where('id', $item->product_id)->increment('stock', $item->quantity);
+            }
+        }
+    }
+
+    private function canViewAll($user): bool
+    {
+        $user->loadMissing('userRole.role', 'userPermission');
+        $role = $user->userRole?->role?->name;
+
+        return in_array($role, ['SuperAdmin', 'Administrator'], true)
+            || (bool) $user->userPermission?->view_all_orders;
     }
 
     private function messages(): array
