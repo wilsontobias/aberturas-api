@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LocalityController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProvinceController;
@@ -36,6 +37,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders', [OrderController::class, 'index'])->middleware('permission:view_all_orders');
     Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id')->middleware('permission:update_item_status');
     Route::patch('/orders/{id}/cancel', [OrderController::class, 'cancel'])->whereNumber('id');
+
+    // Pagos
+    Route::post('/orders/{id}/payments', [PaymentController::class, 'store'])->whereNumber('id');
+    Route::get('/orders/{id}/payments', [PaymentController::class, 'index'])->whereNumber('id');
+    Route::get('/payments/{id}/receipt', [PaymentController::class, 'receipt'])->whereNumber('id');
+    Route::patch('/payments/{id}/verify', [PaymentController::class, 'verify'])->whereNumber('id')->middleware('permission:verify_payments');
 
     // Solo administradores (el SuperAdmin pasa siempre)
     Route::middleware('role:Administrator')->group(function () {

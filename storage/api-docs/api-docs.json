@@ -703,6 +703,230 @@
                 ]
             }
         },
+        "/api/orders/{id}/payments": {
+            "get": {
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Ver los pagos de un pedido",
+                "description": "Lista los pagos de un pedido. Lo puede ver su dueño, un administrador o un vendedor con view_all_orders o verify_payments.",
+                "operationId": "6c7142771266bfc8da223c1b2a3147ab",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pagos obtenidos correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No podés ver los pagos de este pedido."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Subir comprobante de pago",
+                "description": "El dueño del pedido sube el comprobante de la seña o del saldo. El monto lo calcula el sistema. Archivo JPG, PNG o PDF de hasta 2 MB.",
+                "operationId": "56177300c44f4d8368a798e9e8b7c4ab",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "type",
+                                    "receipt"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "example": "deposit",
+                                        "enum": [
+                                            "deposit",
+                                            "balance"
+                                        ]
+                                    },
+                                    "receipt": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Comprobante subido correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "Solo podés pagar tus propios pedidos."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    },
+                    "422": {
+                        "description": "Datos inválidos o el pago no corresponde."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/payments/{id}/receipt": {
+            "get": {
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Descargar comprobante",
+                "description": "Descarga el archivo del comprobante. Lo puede descargar el dueño del pedido, un administrador o un vendedor con view_all_orders o verify_payments.",
+                "operationId": "a2cce140112174cb359778b27a291895",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pago",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archivo del comprobante."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No podés ver este comprobante."
+                    },
+                    "404": {
+                        "description": "Pago o comprobante no encontrado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/payments/{id}/verify": {
+            "patch": {
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Aprobar o rechazar un pago",
+                "description": "Aprueba o rechaza un comprobante pendiente. Si se aprueba una seña y el pedido está pendiente, pasa a confirmed. Requiere el permiso verify_payments.",
+                "operationId": "a2430eb8f841cfb33dd545acb649ca98",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pago",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "approved"
+                                ],
+                                "properties": {
+                                    "approved": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "rejection_reason": {
+                                        "type": "string",
+                                        "example": "El monto no coincide con la seña.",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Pago verificado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Pago no encontrado."
+                    },
+                    "422": {
+                        "description": "Datos inválidos o el pago ya fue revisado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/categories": {
             "get": {
                 "tags": [
@@ -1709,6 +1933,10 @@
         {
             "name": "Pedidos",
             "description": "Pedidos"
+        },
+        {
+            "name": "Pagos",
+            "description": "Pagos"
         },
         {
             "name": "Categorías",
