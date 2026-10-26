@@ -703,6 +703,113 @@
                 ]
             }
         },
+        "/api/orders/{id}/tracking": {
+            "get": {
+                "tags": [
+                    "Seguimiento y Envíos"
+                ],
+                "summary": "Seguimiento de un pedido",
+                "description": "Devuelve el estado actual, la fecha estimada de envío y el historial de cambios. Lo puede ver su dueño, un administrador o un vendedor con view_all_orders.",
+                "operationId": "f6100ffc00923de9aa6fc4ea3f36d968",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Seguimiento obtenido correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No podés ver el seguimiento de este pedido."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{id}/ship-date": {
+            "patch": {
+                "tags": [
+                    "Seguimiento y Envíos"
+                ],
+                "summary": "Cambiar la fecha de envío",
+                "description": "Cambia la fecha estimada de envío. Tiene que ser lunes o jueves y no puede ser pasada. Solo para pedidos confirmados, en fabricación o listos. Requiere el permiso edit_ship_date.",
+                "operationId": "9c73fe8e55485570c128c8de3864732a",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "ship_date"
+                                ],
+                                "properties": {
+                                    "ship_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-11-02"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Fecha de envío actualizada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    },
+                    "422": {
+                        "description": "Fecha inválida o el pedido no admite cambios."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/orders/{id}/payments": {
             "get": {
                 "tags": [
@@ -918,6 +1025,51 @@
                     },
                     "422": {
                         "description": "Datos inválidos o el pago ya fue revisado."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{id}/payments/cash": {
+            "post": {
+                "tags": [
+                    "Pagos"
+                ],
+                "summary": "Registrar saldo pagado en efectivo",
+                "description": "Un vendedor registra que el cliente pagó el saldo en efectivo. Queda aprobado directamente, sin comprobante. Requiere el permiso register_balance_payment.",
+                "operationId": "4a556b832025431bc353cf0b8b118a65",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Pago en efectivo registrado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    },
+                    "422": {
+                        "description": "El pago no corresponde."
                     }
                 },
                 "security": [
@@ -1933,6 +2085,10 @@
         {
             "name": "Pedidos",
             "description": "Pedidos"
+        },
+        {
+            "name": "Seguimiento y Envíos",
+            "description": "Seguimiento y Envíos"
         },
         {
             "name": "Pagos",

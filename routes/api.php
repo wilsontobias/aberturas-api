@@ -38,11 +38,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id')->middleware('permission:update_item_status');
     Route::patch('/orders/{id}/cancel', [OrderController::class, 'cancel'])->whereNumber('id');
 
+    // Seguimiento y Envíos
+    Route::get('/orders/{id}/tracking', [OrderController::class, 'tracking'])->whereNumber('id');
+    Route::patch('/orders/{id}/ship-date', [OrderController::class, 'updateShipDate'])->whereNumber('id')->middleware('permission:edit_ship_date');
+
     // Pagos
     Route::post('/orders/{id}/payments', [PaymentController::class, 'store'])->whereNumber('id');
     Route::get('/orders/{id}/payments', [PaymentController::class, 'index'])->whereNumber('id');
     Route::get('/payments/{id}/receipt', [PaymentController::class, 'receipt'])->whereNumber('id');
     Route::patch('/payments/{id}/verify', [PaymentController::class, 'verify'])->whereNumber('id')->middleware('permission:verify_payments');
+    Route::post('/orders/{id}/payments/cash', [PaymentController::class, 'registerCashBalance'])->whereNumber('id')->middleware('permission:register_balance_payment');
 
     // Solo administradores (el SuperAdmin pasa siempre)
     Route::middleware('role:Administrator')->group(function () {

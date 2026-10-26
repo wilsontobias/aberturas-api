@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -143,6 +144,12 @@ class OrderController extends Controller
                 ]);
 
                 $order->items()->createMany($itemsData);
+
+                $order->statusHistory()->create([
+                    'order_status_id' => $order->order_status_id,
+                    'changed_by' => $user->id,
+                    'note' => 'Pedido creado.',
+                ]);
 
                 return $order;
             });
@@ -331,14 +338,12 @@ class OrderController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($order, $new) {
+        DB::transaction(function () use ($order, $new, $request) {
             if ($new === 'cancelled') {
                 $this->restoreStock($order);
             }
 
-            $order->update([
-                'order_status_id' => OrderStatus::where('name', $new)->value('id'),
-            ]);
+            $order->changeStatus($new, $request->user()->id);
         });
 
         return response()->json([
@@ -386,17 +391,149 @@ class OrderController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($order) {
+        DB::transaction(function () use ($order, $request) {
             $this->restoreStock($order);
 
-            $order->update([
-                'order_status_id' => OrderStatus::where('name', 'cancelled')->value('id'),
-            ]);
+            $order->changeStatus('cancelled', $request->user()->id, 'Cancelado por el cliente.');
         });
 
         return response()->json([
             'message' => 'Pedido cancelado correctamente.',
             'order' => $order->fresh()->load('status', 'items.product:id,name'),
+        ], 200);
+    }
+
+    #[OA\Get(
+        path: '/api/orders/{id}/tracking',
+        summary: 'Seguimiento de un pedido',
+        description: 'Devuelve el estado actual, la fecha estimada de envío y el historial de cambios. Lo puede ver su dueño, un administrador o un vendedor con view_all_orders.',
+        tags: ['Seguimiento y Envíos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', description: 'ID del pedido', in: 'path', required: true, schema: new OA\Schema(type: 'integer', minimum: 1), example: 1),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Seguimiento obtenido correctamente.'),
+            new OA\Response(response: 401, description: 'No estás autenticado.'),
+            new OA\Response(response: 403, description: 'No podés ver el seguimiento de este pedido.'),
+            new OA\Response(response: 404, description: 'Pedido no encontrado.'),
+        ]
+    )]
+    public function tracking(Request $request, string $id)
+    {
+        $order = Order::with('status', 'statusHistory.status', 'statusHistory.changedBy:id,name')->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Pedido no encontrado.',
+            ], 404);
+        }
+
+        $viewer = $request->user();
+
+        if ($order->user_id !== $viewer->id && !$this->canViewAll($viewer)) {
+            return response()->json([
+                'message' => 'No podés ver el seguimiento de este pedido.',
+            ], 403);
+        }
+
+        return response()->json([
+            'message' => 'Seguimiento obtenido correctamente.',
+            'tracking' => [
+                'order_id' => $order->id,
+                'status' => $order->status->name,
+                'requires_manufacturing' => $order->requires_manufacturing,
+                'estimated_ship_date' => $order->estimated_ship_date?->format('Y-m-d'),
+                'shipped_at' => $order->shipped_at,
+                'delivered_at' => $order->delivered_at,
+                'history' => $order->statusHistory->map(fn ($h) => [
+                    'status' => $h->status->name,
+                    'changed_by' => $h->changedBy?->name,
+                    'note' => $h->note,
+                    'date' => $h->created_at,
+                ]),
+            ],
+        ], 200);
+    }
+
+    #[OA\Patch(
+        path: '/api/orders/{id}/ship-date',
+        summary: 'Cambiar la fecha de envío',
+        description: 'Cambia la fecha estimada de envío. Tiene que ser lunes o jueves y no puede ser pasada. Solo para pedidos confirmados, en fabricación o listos. Requiere el permiso edit_ship_date.',
+        tags: ['Seguimiento y Envíos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', description: 'ID del pedido', in: 'path', required: true, schema: new OA\Schema(type: 'integer', minimum: 1), example: 1),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['ship_date'],
+                properties: [
+                    new OA\Property(property: 'ship_date', type: 'string', format: 'date', example: '2026-11-02'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Fecha de envío actualizada correctamente.'),
+            new OA\Response(response: 401, description: 'No estás autenticado.'),
+            new OA\Response(response: 403, description: 'No tenés permiso para realizar esta acción.'),
+            new OA\Response(response: 404, description: 'Pedido no encontrado.'),
+            new OA\Response(response: 422, description: 'Fecha inválida o el pedido no admite cambios.'),
+        ]
+    )]
+    public function updateShipDate(Request $request, string $id)
+    {
+        $order = Order::with('status')->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Pedido no encontrado.',
+            ], 404);
+        }
+
+        try {
+            $validated = $request->validate([
+                'ship_date' => ['bail', 'required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            ], [
+                'ship_date.required' => 'La fecha de envío es obligatoria.',
+                'ship_date.date_format' => 'La fecha debe tener el formato AAAA-MM-DD.',
+                'ship_date.after_or_equal' => 'La fecha de envío no puede ser pasada.',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Los datos proporcionados no son válidos.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        if (!in_array($order->status->name, ['confirmed', 'in_production', 'ready'], true)) {
+            return response()->json([
+                'message' => 'Solo se puede cambiar la fecha de envío de pedidos confirmados, en fabricación o listos.',
+            ], 422);
+        }
+
+        $date = Carbon::parse($validated['ship_date']);
+
+        if (!$date->isMonday() && !$date->isThursday()) {
+            return response()->json([
+                'message' => 'Los envíos salen solo los lunes y los jueves.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($order, $date, $request) {
+            $order->update(['estimated_ship_date' => $date]);
+
+            $order->statusHistory()->create([
+                'order_status_id' => $order->order_status_id,
+                'changed_by' => $request->user()->id,
+                'note' => 'Fecha de envío cambiada al ' . $date->format('d/m/Y') . '.',
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Fecha de envío actualizada correctamente.',
+            'order' => $order->fresh()->load('status'),
         ], 200);
     }
 

@@ -65,12 +65,13 @@ class PaymentController extends Controller
         try {
             $validated = $request->validate([
                 'type' => ['required', Rule::in(['deposit', 'balance'])],
-                'receipt' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
+                'receipt' => ['bail', 'required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
             ], [
                 'type.required' => 'El tipo de pago es obligatorio.',
                 'type.in' => 'El tipo de pago debe ser deposit o balance.',
                 'receipt.required' => 'El comprobante es obligatorio.',
                 'receipt.file' => 'El comprobante debe ser un archivo.',
+                'receipt.uploaded' => 'No se pudo subir el comprobante. Probá con un archivo de hasta 2 MB.',
                 'receipt.mimes' => 'El comprobante debe ser JPG, PNG o PDF.',
                 'receipt.max' => 'El comprobante no puede superar los 2 MB.',
             ]);
@@ -308,9 +309,7 @@ class PaymentController extends Controller
             ]);
 
             if ($approved && $payment->type->name === 'deposit' && $payment->order->status->name === 'pending') {
-                $payment->order->update([
-                    'order_status_id' => OrderStatus::where('name', 'confirmed')->value('id'),
-                ]);
+                $payment->order->changeStatus('confirmed', $request->user()->id, 'Seña aprobada.');
             }
         });
 
@@ -318,6 +317,76 @@ class PaymentController extends Controller
             'message' => $approved ? 'Pago aprobado correctamente.' : 'Pago rechazado.',
             'payment' => $payment->fresh()->load('type', 'status', 'verifier:id,name', 'order.status'),
         ], 200);
+    }
+
+    #[OA\Post(
+        path: '/api/orders/{id}/payments/cash',
+        summary: 'Registrar saldo pagado en efectivo',
+        description: 'Un vendedor registra que el cliente pagó el saldo en efectivo. Queda aprobado directamente, sin comprobante. Requiere el permiso register_balance_payment.',
+        tags: ['Pagos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', description: 'ID del pedido', in: 'path', required: true, schema: new OA\Schema(type: 'integer', minimum: 1), example: 1),
+        ],
+        responses: [
+            new OA\Response(response: 201, description: 'Pago en efectivo registrado correctamente.'),
+            new OA\Response(response: 401, description: 'No estás autenticado.'),
+            new OA\Response(response: 403, description: 'No tenés permiso para realizar esta acción.'),
+            new OA\Response(response: 404, description: 'Pedido no encontrado.'),
+            new OA\Response(response: 422, description: 'El pago no corresponde.'),
+        ]
+    )]
+    public function registerCashBalance(Request $request, string $id)
+    {
+        $order = Order::with('status', 'payments.type', 'payments.status')->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Pedido no encontrado.',
+            ], 404);
+        }
+
+        if ($order->status->name === 'cancelled') {
+            return response()->json([
+                'message' => 'No se puede registrar un pago en un pedido cancelado.',
+            ], 422);
+        }
+
+        $depositApproved = $order->payments->first(
+            fn ($p) => $p->type->name === 'deposit' && $p->status->name === 'approved'
+        );
+
+        if (!$depositApproved) {
+            return response()->json([
+                'message' => 'Primero tiene que estar aprobada la seña.',
+            ], 422);
+        }
+
+        $balanceActive = $order->payments->first(
+            fn ($p) => $p->type->name === 'balance' && in_array($p->status->name, ['pending', 'approved'], true)
+        );
+
+        if ($balanceActive) {
+            return response()->json([
+                'message' => 'Ya hay un pago de saldo pendiente de revisión o aprobado para este pedido.',
+            ], 422);
+        }
+
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'payment_type_id' => PaymentType::where('name', 'balance')->value('id'),
+            'payment_status_id' => PaymentStatus::where('name', 'approved')->value('id'),
+            'amount' => round($order->total - $order->deposit_amount, 2),
+            'receipt_path' => null,
+            'uploaded_by' => $request->user()->id,
+            'verified_by' => $request->user()->id,
+            'verified_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Pago en efectivo registrado correctamente.',
+            'payment' => $payment->load('type', 'status', 'verifier:id,name'),
+        ], 201);
     }
 
     private function canReview($user): bool
