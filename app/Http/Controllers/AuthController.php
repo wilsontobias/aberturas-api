@@ -43,11 +43,7 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         try {
-            $validated = $request->validate([                
-                'first_name.regex' => 'El nombre solo puede contener letras, espacios, apóstrofos y guiones.',
-                'last_name.regex' => 'El apellido solo puede contener letras, espacios, apóstrofos y guiones.',
-                'phone_1.regex' => 'El teléfono 1 solo puede contener números, espacios, paréntesis, + y -.',
-                'phone_2.regex' => 'El teléfono 2 solo puede contener números, espacios, paréntesis, + y -.',
+            $validated = $request->validate([
                 'first_name' => ['required', 'string', 'max:100', 'regex:/^[\pL\s\'-]+$/u'],
                 'last_name' => ['required', 'string', 'max:100', 'regex:/^[\pL\s\'-]+$/u'],
                 'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
@@ -61,6 +57,10 @@ class AuthController extends Controller
                 'phone_2' => ['required', 'string', 'max:30', 'regex:/^[0-9\s()+-]+$/'],
             ], [
                 'first_name.required' => 'El nombre es obligatorio.',
+                'first_name.regex' => 'El nombre solo puede contener letras, espacios, apóstrofos y guiones.',
+                'last_name.regex' => 'El apellido solo puede contener letras, espacios, apóstrofos y guiones.',
+                'phone_1.regex' => 'El teléfono 1 solo puede contener números, espacios, paréntesis, + y -.',
+                'phone_2.regex' => 'El teléfono 2 solo puede contener números, espacios, paréntesis, + y -.',
                 'first_name.max' => 'El nombre no puede superar los 100 caracteres.',
                 'last_name.required' => 'El apellido es obligatorio.',
                 'last_name.max' => 'El apellido no puede superar los 100 caracteres.',
