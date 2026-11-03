@@ -16,6 +16,7 @@ class OrderItem extends Model
         'unit_price',
         'subtotal',
         'from_stock',
+        'item_status_id',
     ];
 
     protected $casts = [
@@ -28,6 +29,11 @@ class OrderItem extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(ItemStatus::class, 'item_status_id');
     }
 
     public function product(): BelongsTo

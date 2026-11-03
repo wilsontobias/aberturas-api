@@ -10,10 +10,12 @@ class OrderStatusSeeder extends Seeder
     public function run(): void
     {
         $statuses = [
-            'pending',
+            'pending_payment',
+            'receipt_in_review',
             'confirmed',
             'in_production',
-            'ready',
+            'finished',
+            'packed',
             'shipped',
             'delivered',
             'cancelled',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ItemStatus;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\Product;
@@ -17,27 +18,21 @@ class OrderController extends Controller
     private const DEPOSIT_IN_STOCK = 10;
     private const DEPOSIT_MANUFACTURING = 50;
 
-    private const TRANSITIONS = [
-        'pending' => ['confirmed', 'cancelled'],
-        'confirmed' => ['in_production', 'ready', 'cancelled'],
-        'in_production' => ['ready', 'cancelled'],
-        'ready' => ['shipped', 'cancelled'],
-        'shipped' => ['delivered'],
-        'delivered' => [],
-        'cancelled' => [],
-    ];
-
     #[OA\Post(
         path: '/api/orders',
         summary: 'Crear pedido',
-        description: 'Crea un pedido con sus productos. Descuenta el stock disponible. Seña del 10 % si todo está en stock, 50 % si algo hay que fabricarlo. Requiere el permiso create_orders.',
+        description: 'Crea un pedido con sus productos y la dirección de entrega (localidad, calle, número y referencia). Descuenta el stock disponible. Seña del 10 % si todo está en stock, 50 % si algo hay que fabricarlo. Requiere el permiso create_orders.',
         tags: ['Pedidos'],
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['items'],
+                required: ['locality_id', 'street', 'street_number', 'items'],
                 properties: [
+                    new OA\Property(property: 'locality_id', type: 'integer', example: 1),
+                    new OA\Property(property: 'street', type: 'string', example: 'San Martín'),
+                    new OA\Property(property: 'street_number', type: 'string', example: '1234'),
+                    new OA\Property(property: 'address_notes', type: 'string', nullable: true, example: 'Portón negro, tocar el timbre.'),
                     new OA\Property(
                         property: 'items',
                         type: 'array',
@@ -48,7 +43,6 @@ class OrderController extends Controller
                             ]
                         )
                     ),
-                    new OA\Property(property: 'notes', type: 'string', nullable: true, example: 'Entregar por la tarde.'),
                 ]
             )
         ),
@@ -65,7 +59,7 @@ class OrderController extends Controller
 
         if (!$user->customerProfile) {
             return response()->json([
-                'message' => 'Solo los clientes con perfil y localidad pueden crear pedidos.',
+                'message' => 'Solo los clientes con perfil pueden crear pedidos.',
             ], 403);
         }
 
@@ -74,7 +68,10 @@ class OrderController extends Controller
                 'items' => ['required', 'array', 'min:1', 'max:50'],
                 'items.*.product_id' => ['required', 'integer', 'distinct', Rule::exists('products', 'id')->where('status', true)],
                 'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100'],
-                'notes' => ['nullable', 'string', 'max:255'],
+                'locality_id' => ['required', 'integer', Rule::exists('localities', 'id')->where('status', true)],
+                'street' => ['required', 'string', 'max:120', 'regex:/^[\pL\d\s.\'°,-]+$/u'],
+                'street_number' => ['required', 'string', 'max:20', 'regex:/^[\pL\d\s\/.-]+$/u'],
+                'address_notes' => ['nullable', 'string', 'max:255'],
             ], $this->messages());
         } catch (ValidationException $e) {
             return response()->json([
@@ -101,6 +98,7 @@ class OrderController extends Controller
                     ]);
                 }
 
+                $itemStatusIds = ItemStatus::pluck('id', 'name');
                 $total = 0;
                 $requiresManufacturing = false;
                 $itemsData = [];
@@ -125,6 +123,7 @@ class OrderController extends Controller
                         'unit_price' => $product->price,
                         'subtotal' => $subtotal,
                         'from_stock' => $fromStock,
+                        'item_status_id' => $itemStatusIds[$fromStock ? 'done' : 'pending'],
                     ];
                 }
 
@@ -134,13 +133,16 @@ class OrderController extends Controller
 
                 $order = Order::create([
                     'user_id' => $user->id,
-                    'order_status_id' => OrderStatus::where('name', 'pending')->value('id'),
-                    'locality_id' => $user->customerProfile->locality_id,
+                    'order_status_id' => OrderStatus::where('name', 'pending_payment')->value('id'),
+                    'locality_id' => $validated['locality_id'],
+                    'street' => $validated['street'],
+                    'street_number' => $validated['street_number'],
                     'total' => round($total, 2),
                     'deposit_percentage' => $percentage,
                     'deposit_amount' => round($total * $percentage / 100, 2),
+                    'balance_amount' => round($total - round($total * $percentage / 100, 2), 2),
                     'requires_manufacturing' => $requiresManufacturing,
-                    'notes' => $validated['notes'] ?? null,
+                    'address_notes' => $validated['address_notes'] ?? null,
                 ]);
 
                 $order->items()->createMany($itemsData);
@@ -162,7 +164,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => 'Pedido creado correctamente.',
-            'order' => $order->load('status', 'locality:id,name', 'items.product:id,name'),
+            'order' => $order->load('status', 'locality:id,name', 'items.product:id,name', 'items.status'),
         ], 201);
     }
 
@@ -181,7 +183,7 @@ class OrderController extends Controller
     {
         $orders = $request->user()
             ->orders()
-            ->with('status', 'items.product:id,name')
+            ->with('status', 'items.product:id,name', 'items.status')
             ->latest()
             ->get();
 
@@ -209,7 +211,7 @@ class OrderController extends Controller
     )]
     public function show(Request $request, string $id)
     {
-        $order = Order::with('user:id,name,email', 'status', 'locality.province', 'items.product:id,name')
+        $order = Order::with('user:id,name,email', 'status', 'locality.province', 'items.product:id,name', 'items.status')
             ->find($id);
 
         if (!$order) {
@@ -235,11 +237,13 @@ class OrderController extends Controller
     #[OA\Get(
         path: '/api/orders',
         summary: 'Listar todos los pedidos',
-        description: 'Devuelve todos los pedidos, con filtro opcional por estado. Administradores o vendedores con el permiso view_all_orders.',
+        description: 'Devuelve los pedidos de todos los clientes, con el nombre y los teléfonos de cada cliente, del más nuevo al más viejo, paginados. Filtro opcional por estado. Administradores o vendedores con el permiso view_all_orders.',
         tags: ['Pedidos'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'status', description: 'Nombre del estado', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending', 'confirmed', 'in_production', 'ready', 'shipped', 'delivered', 'cancelled'])),
+            new OA\Parameter(name: 'status', description: 'Nombre del estado', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending_payment', 'receipt_in_review', 'confirmed', 'in_production', 'finished', 'packed', 'shipped', 'delivered', 'cancelled'])),
+            new OA\Parameter(name: 'page', description: 'Número de página (empieza en 1)', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, default: 1)),
+            new OA\Parameter(name: 'per_page', description: 'Pedidos por página (de 1 a 100)', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100, default: 15)),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Pedidos obtenidos correctamente.'),
@@ -253,8 +257,15 @@ class OrderController extends Controller
         try {
             $request->validate([
                 'status' => ['sometimes', Rule::exists('order_statuses', 'name')],
+                'page' => ['sometimes', 'integer', 'min:1'],
+                'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             ], [
                 'status.exists' => 'El estado indicado no existe.',
+                'page.integer' => 'La página debe ser un número entero.',
+                'page.min' => 'La página debe ser 1 o mayor.',
+                'per_page.integer' => 'La cantidad por página debe ser un número entero.',
+                'per_page.min' => 'La cantidad por página debe ser al menos 1.',
+                'per_page.max' => 'La cantidad por página no puede superar 100.',
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -263,7 +274,7 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $query = Order::with('user:id,name,email', 'status', 'locality:id,name')
+        $query = Order::with('user:id,name,email', 'user.customerProfile:id,user_id,first_name,last_name,phone_1,phone_2', 'status', 'locality:id,name')
             ->withCount('items')
             ->latest();
 
@@ -271,91 +282,24 @@ class OrderController extends Controller
             $query->whereHas('status', fn ($q) => $q->where('name', $request->query('status')));
         }
 
+        $page = $query->paginate((int) $request->query('per_page', 15));
+
         return response()->json([
             'message' => 'Pedidos obtenidos correctamente.',
-            'orders' => $query->get(),
-        ], 200);
-    }
-
-    #[OA\Patch(
-        path: '/api/orders/{id}/status',
-        summary: 'Cambiar el estado de un pedido',
-        description: 'Avanza el pedido por los estados permitidos. Si se cancela, devuelve el stock de los productos que salieron del stock. Administradores o vendedores con el permiso update_item_status.',
-        tags: ['Pedidos'],
-        security: [['sanctum' => []]],
-        parameters: [
-            new OA\Parameter(name: 'id', description: 'ID del pedido', in: 'path', required: true, schema: new OA\Schema(type: 'integer', minimum: 1), example: 1),
-        ],
-        requestBody: new OA\RequestBody(
-            required: true,
-            content: new OA\JsonContent(
-                required: ['status'],
-                properties: [
-                    new OA\Property(property: 'status', type: 'string', enum: ['confirmed', 'in_production', 'ready', 'shipped', 'delivered', 'cancelled'], example: 'confirmed'),
-                ]
-            )
-        ),
-        responses: [
-            new OA\Response(response: 200, description: 'Estado del pedido actualizado correctamente.'),
-            new OA\Response(response: 401, description: 'No estás autenticado.'),
-            new OA\Response(response: 403, description: 'No tenés permiso para realizar esta acción.'),
-            new OA\Response(response: 404, description: 'Pedido no encontrado.'),
-            new OA\Response(response: 422, description: 'Estado inválido o cambio no permitido.'),
-        ]
-    )]
-    public function updateStatus(Request $request, string $id)
-    {
-        $order = Order::with('status', 'items')->find($id);
-
-        if (!$order) {
-            return response()->json([
-                'message' => 'Pedido no encontrado.',
-            ], 404);
-        }
-
-        try {
-            $validated = $request->validate([
-                'status' => ['required', 'string', Rule::exists('order_statuses', 'name')],
-            ], [
-                'status.required' => 'El estado es obligatorio.',
-                'status.exists' => 'El estado indicado no existe.',
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Los datos proporcionados no son válidos.',
-                'errors' => $e->errors(),
-            ], 422);
-        }
-
-        $current = $order->status->name;
-        $new = $validated['status'];
-        $allowed = self::TRANSITIONS[$current] ?? [];
-
-        if (!in_array($new, $allowed, true)) {
-            return response()->json([
-                'message' => "No se puede pasar un pedido de {$current} a {$new}.",
-                'allowed' => $allowed,
-            ], 422);
-        }
-
-        DB::transaction(function () use ($order, $new, $request) {
-            if ($new === 'cancelled') {
-                $this->restoreStock($order);
-            }
-
-            $order->changeStatus($new, $request->user()->id);
-        });
-
-        return response()->json([
-            'message' => 'Estado del pedido actualizado correctamente.',
-            'order' => $order->fresh()->load('status', 'items.product:id,name'),
+            'orders' => $page->items(),
+            'pagination' => [
+                'current_page' => $page->currentPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+                'last_page' => $page->lastPage(),
+            ],
         ], 200);
     }
 
     #[OA\Patch(
         path: '/api/orders/{id}/cancel',
-        summary: 'Cancelar mi pedido',
-        description: 'El cliente cancela su propio pedido, solo si todavía está pendiente. Devuelve el stock.',
+        summary: 'Cancelar un pedido',
+        description: 'El cliente puede cancelar su propio pedido mientras esté pendiente de pago. Un administrador puede cancelar cualquier pedido que todavía no esté enviado, entregado ni cancelado. Devuelve el stock de los productos que salieron del stock.',
         tags: ['Pedidos'],
         security: [['sanctum' => []]],
         parameters: [
@@ -364,9 +308,9 @@ class OrderController extends Controller
         responses: [
             new OA\Response(response: 200, description: 'Pedido cancelado correctamente.'),
             new OA\Response(response: 401, description: 'No estás autenticado.'),
-            new OA\Response(response: 403, description: 'Solo podés cancelar tus propios pedidos.'),
+            new OA\Response(response: 403, description: 'No podés cancelar este pedido.'),
             new OA\Response(response: 404, description: 'Pedido no encontrado.'),
-            new OA\Response(response: 422, description: 'Solo se pueden cancelar pedidos pendientes.'),
+            new OA\Response(response: 422, description: 'El pedido no se puede cancelar en su estado actual.'),
         ]
     )]
     public function cancel(Request $request, string $id)
@@ -379,27 +323,41 @@ class OrderController extends Controller
             ], 404);
         }
 
-        if ($order->user_id !== $request->user()->id) {
+        $user = $request->user();
+        $user->loadMissing('userRole.role');
+        $isAdmin = in_array($user->userRole?->role?->name, ['SuperAdmin', 'Administrator'], true);
+
+        if ($order->user_id !== $user->id && !$isAdmin) {
             return response()->json([
-                'message' => 'Solo podés cancelar tus propios pedidos.',
+                'message' => 'No podés cancelar este pedido.',
             ], 403);
         }
 
-        if ($order->status->name !== 'pending') {
+        $current = $order->status->name;
+
+        $closed = ['shipped' => 'enviado', 'delivered' => 'entregado', 'cancelled' => 'cancelado'];
+
+        if (isset($closed[$current])) {
             return response()->json([
-                'message' => 'Solo se pueden cancelar pedidos pendientes. Para otros casos, contactá a la empresa.',
+                'message' => "No se puede cancelar un pedido {$closed[$current]}.",
             ], 422);
         }
 
-        DB::transaction(function () use ($order, $request) {
+        if (!$isAdmin && $current !== 'pending_payment') {
+            return response()->json([
+                'message' => 'Solo se pueden cancelar pedidos pendientes de pago. Para otros casos, contactá a la empresa.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($order, $user, $isAdmin) {
             $this->restoreStock($order);
 
-            $order->changeStatus('cancelled', $request->user()->id, 'Cancelado por el cliente.');
+            $order->changeStatus('cancelled', $user->id, $isAdmin ? 'Cancelado por un administrador.' : 'Cancelado por el cliente.');
         });
 
         return response()->json([
             'message' => 'Pedido cancelado correctamente.',
-            'order' => $order->fresh()->load('status', 'items.product:id,name'),
+            'order' => $order->fresh()->load('status', 'items.product:id,name', 'items.status'),
         ], 200);
     }
 
@@ -459,7 +417,7 @@ class OrderController extends Controller
     #[OA\Patch(
         path: '/api/orders/{id}/ship-date',
         summary: 'Cambiar la fecha de envío',
-        description: 'Cambia la fecha estimada de envío. Tiene que ser lunes o jueves y no puede ser pasada. Solo para pedidos confirmados, en fabricación o listos. Requiere el permiso edit_ship_date.',
+        description: 'Cambia la fecha estimada de envío. Tiene que ser lunes o jueves y no puede ser pasada. Solo para pedidos confirmados, en fabricación, terminados o embalados. Requiere el permiso edit_ship_date.',
         tags: ['Seguimiento y Envíos'],
         security: [['sanctum' => []]],
         parameters: [
@@ -507,9 +465,9 @@ class OrderController extends Controller
             ], 422);
         }
 
-        if (!in_array($order->status->name, ['confirmed', 'in_production', 'ready'], true)) {
+        if (!in_array($order->status->name, ['confirmed', 'in_production', 'finished', 'packed'], true)) {
             return response()->json([
-                'message' => 'Solo se puede cambiar la fecha de envío de pedidos confirmados, en fabricación o listos.',
+                'message' => 'Solo se puede cambiar la fecha de envío de pedidos confirmados, en fabricación, terminados o embalados.',
             ], 422);
         }
 
@@ -570,7 +528,16 @@ class OrderController extends Controller
             'items.*.quantity.integer' => 'La cantidad debe ser un número entero.',
             'items.*.quantity.min' => 'La cantidad debe ser al menos 1.',
             'items.*.quantity.max' => 'La cantidad no puede superar las 100 unidades por producto.',
-            'notes.max' => 'Las notas no pueden superar los 255 caracteres.',
+            'locality_id.required' => 'La localidad de entrega es obligatoria.',
+            'locality_id.integer' => 'La localidad debe ser un número.',
+            'locality_id.exists' => 'La localidad seleccionada no existe o no está activa.',
+            'street.required' => 'La calle es obligatoria.',
+            'street.max' => 'La calle no puede superar los 120 caracteres.',
+            'street.regex' => 'La calle solo puede contener letras, números, espacios, puntos, comas, apóstrofos y guiones.',
+            'street_number.required' => 'El número de la calle es obligatorio.',
+            'street_number.max' => 'El número no puede superar los 20 caracteres.',
+            'street_number.regex' => 'El número solo puede contener letras, números, espacios, barras, puntos y guiones.',
+            'address_notes.max' => 'La referencia no puede superar los 255 caracteres.',
         ];
     }
 }

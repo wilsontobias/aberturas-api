@@ -12,6 +12,182 @@
         }
     ],
     "paths": {
+        "/api/users/{id}/admin": {
+            "put": {
+                "tags": [
+                    "Administradores"
+                ],
+                "summary": "Dar el rol de Administrador",
+                "description": "Convierte a un cliente o vendedor activo en Administrador. Pueden hacerlo el Super Administrador y los Administradores Propietarios. Queda registrado en admin_action_logs.",
+                "operationId": "48b31ba3fd67bb7f26750a788257c337",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rol de Administrador otorgado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "El usuario no puede recibir ese rol."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Administradores"
+                ],
+                "summary": "Quitar el rol de Administrador",
+                "description": "Convierte a un Administrador en cliente, con los permisos por defecto de un cliente. Solo el Super Administrador. Si es Propietario, primero hay que quitarle esa condición. Queda registrado en admin_action_logs.",
+                "operationId": "dfe2bb7dcc2243e7e774f958c4d64c18",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rol de Administrador quitado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "El usuario no es administrador o es propietario."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/users/{id}/owner": {
+            "put": {
+                "tags": [
+                    "Administradores"
+                ],
+                "summary": "Dar el atributo de Administrador Propietario",
+                "description": "Marca a un Administrador activo como Propietario: solo el Super Administrador podrá desactivarlo. Solo el Super Administrador. Queda registrado en admin_action_logs.",
+                "operationId": "7cfbfabcd7200f182059d3d70c28fda1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Administrador Propietario otorgado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "El usuario no puede ser propietario."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Administradores"
+                ],
+                "summary": "Quitar el atributo de Administrador Propietario",
+                "description": "Deja de proteger a un Administrador: desde ese momento pueden desactivarlo los Propietarios y el Super Administrador. Solo el Super Administrador. Queda registrado en admin_action_logs.",
+                "operationId": "06adc5215b6437dd3b35f575df9d5079",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del usuario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 2
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Atributo de Propietario quitado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado."
+                    },
+                    "422": {
+                        "description": "El usuario no es propietario."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/register": {
             "post": {
                 "tags": [
@@ -208,6 +384,58 @@
                         "description": "Localidades obtenidas correctamente."
                     }
                 }
+            },
+            "post": {
+                "tags": [
+                    "Localidades"
+                ],
+                "summary": "Crear localidad",
+                "description": "Agrega una localidad nueva a una provincia. No puede haber dos localidades con el mismo nombre en la misma provincia. Solo administradores.",
+                "operationId": "2b420cb195c88ac6963f1d300aaebbe7",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "province_id",
+                                    "name"
+                                ],
+                                "properties": {
+                                    "province_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Federación",
+                                        "maxLength": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Localidad creada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/localities/{id}": {
@@ -239,6 +467,114 @@
                         "description": "Localidad no encontrada."
                     }
                 }
+            },
+            "put": {
+                "tags": [
+                    "Localidades"
+                ],
+                "summary": "Editar localidad",
+                "description": "Cambia el nombre o la provincia de una localidad, o la vuelve a activar. No puede quedar repetida en la misma provincia. Solo administradores.",
+                "operationId": "2b075cebea3e96dba997c7990376488c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la localidad",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "province_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Federación",
+                                        "maxLength": 100
+                                    },
+                                    "status": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Localidad actualizada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Localidad no encontrada."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Localidades"
+                ],
+                "summary": "Desactivar localidad",
+                "description": "Desactiva una localidad (status = 0); no se borra porque puede estar usada en clientes o pedidos. Deja de aparecer en el registro y en los pedidos nuevos. Solo administradores.",
+                "operationId": "b7edd85e9d1bb0a559ec9d0a1bfc51fb",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la localidad",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Localidad desactivada correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Localidad no encontrada."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/materials": {
@@ -415,7 +751,7 @@
                     "Pedidos"
                 ],
                 "summary": "Listar todos los pedidos",
-                "description": "Devuelve todos los pedidos, con filtro opcional por estado. Administradores o vendedores con el permiso view_all_orders.",
+                "description": "Devuelve los pedidos de todos los clientes, con el nombre y los teléfonos de cada cliente, del más nuevo al más viejo, paginados. Filtro opcional por estado. Administradores o vendedores con el permiso view_all_orders.",
                 "operationId": "2cd7e03021e72d9d799c12dfe179c865",
                 "parameters": [
                     {
@@ -426,14 +762,39 @@
                         "schema": {
                             "type": "string",
                             "enum": [
-                                "pending",
+                                "pending_payment",
+                                "receipt_in_review",
                                 "confirmed",
                                 "in_production",
-                                "ready",
+                                "finished",
+                                "packed",
                                 "shipped",
                                 "delivered",
                                 "cancelled"
                             ]
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Número de página (empieza en 1)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Pedidos por página (de 1 a 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 15,
+                            "maximum": 100,
+                            "minimum": 1
                         }
                     }
                 ],
@@ -462,7 +823,7 @@
                     "Pedidos"
                 ],
                 "summary": "Crear pedido",
-                "description": "Crea un pedido con sus productos. Descuenta el stock disponible. Seña del 10 % si todo está en stock, 50 % si algo hay que fabricarlo. Requiere el permiso create_orders.",
+                "description": "Crea un pedido con sus productos y la dirección de entrega (localidad, calle, número y referencia). Descuenta el stock disponible. Seña del 10 % si todo está en stock, 50 % si algo hay que fabricarlo. Requiere el permiso create_orders.",
                 "operationId": "d690d6834318e9b064df441e854de8b9",
                 "requestBody": {
                     "required": true,
@@ -470,9 +831,29 @@
                         "application/json": {
                             "schema": {
                                 "required": [
+                                    "locality_id",
+                                    "street",
+                                    "street_number",
                                     "items"
                                 ],
                                 "properties": {
+                                    "locality_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "street": {
+                                        "type": "string",
+                                        "example": "San Martín"
+                                    },
+                                    "street_number": {
+                                        "type": "string",
+                                        "example": "1234"
+                                    },
+                                    "address_notes": {
+                                        "type": "string",
+                                        "example": "Portón negro, tocar el timbre.",
+                                        "nullable": true
+                                    },
                                     "items": {
                                         "type": "array",
                                         "items": {
@@ -488,11 +869,6 @@
                                             },
                                             "type": "object"
                                         }
-                                    },
-                                    "notes": {
-                                        "type": "string",
-                                        "example": "Entregar por la tarde.",
-                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -586,85 +962,13 @@
                 ]
             }
         },
-        "/api/orders/{id}/status": {
-            "patch": {
-                "tags": [
-                    "Pedidos"
-                ],
-                "summary": "Cambiar el estado de un pedido",
-                "description": "Avanza el pedido por los estados permitidos. Si se cancela, devuelve el stock de los productos que salieron del stock. Administradores o vendedores con el permiso update_item_status.",
-                "operationId": "cbee5c99370628f7a4a9e10c9efcca5c",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID del pedido",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "minimum": 1
-                        },
-                        "example": 1
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "status"
-                                ],
-                                "properties": {
-                                    "status": {
-                                        "type": "string",
-                                        "example": "confirmed",
-                                        "enum": [
-                                            "confirmed",
-                                            "in_production",
-                                            "ready",
-                                            "shipped",
-                                            "delivered",
-                                            "cancelled"
-                                        ]
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Estado del pedido actualizado correctamente."
-                    },
-                    "401": {
-                        "description": "No estás autenticado."
-                    },
-                    "403": {
-                        "description": "No tenés permiso para realizar esta acción."
-                    },
-                    "404": {
-                        "description": "Pedido no encontrado."
-                    },
-                    "422": {
-                        "description": "Estado inválido o cambio no permitido."
-                    }
-                },
-                "security": [
-                    {
-                        "sanctum": []
-                    }
-                ]
-            }
-        },
         "/api/orders/{id}/cancel": {
             "patch": {
                 "tags": [
                     "Pedidos"
                 ],
-                "summary": "Cancelar mi pedido",
-                "description": "El cliente cancela su propio pedido, solo si todavía está pendiente. Devuelve el stock.",
+                "summary": "Cancelar un pedido",
+                "description": "El cliente puede cancelar su propio pedido mientras esté pendiente de pago. Un administrador puede cancelar cualquier pedido que todavía no esté enviado, entregado ni cancelado. Devuelve el stock de los productos que salieron del stock.",
                 "operationId": "334860e4bcdaa0db54c10ea6983e82a2",
                 "parameters": [
                     {
@@ -687,13 +991,13 @@
                         "description": "No estás autenticado."
                     },
                     "403": {
-                        "description": "Solo podés cancelar tus propios pedidos."
+                        "description": "No podés cancelar este pedido."
                     },
                     "404": {
                         "description": "Pedido no encontrado."
                     },
                     "422": {
-                        "description": "Solo se pueden cancelar pedidos pendientes."
+                        "description": "El pedido no se puede cancelar en su estado actual."
                     }
                 },
                 "security": [
@@ -751,7 +1055,7 @@
                     "Seguimiento y Envíos"
                 ],
                 "summary": "Cambiar la fecha de envío",
-                "description": "Cambia la fecha estimada de envío. Tiene que ser lunes o jueves y no puede ser pasada. Solo para pedidos confirmados, en fabricación o listos. Requiere el permiso edit_ship_date.",
+                "description": "Cambia la fecha estimada de envío. Tiene que ser lunes o jueves y no puede ser pasada. Solo para pedidos confirmados, en fabricación, terminados o embalados. Requiere el permiso edit_ship_date.",
                 "operationId": "9c73fe8e55485570c128c8de3864732a",
                 "parameters": [
                     {
@@ -810,6 +1114,76 @@
                 ]
             }
         },
+        "/api/order-items/{id}/status": {
+            "patch": {
+                "tags": [
+                    "Seguimiento y Envíos"
+                ],
+                "summary": "Cambiar el estado de un producto del pedido",
+                "description": "Marca un producto del pedido como en fabricación, hecho, embalado o enviado. Cuando todos los productos del pedido tienen el mismo estado, el pedido pasa solo a ese estado. Un producto solo se puede enviar cuando todo el pedido está embalado. No se puede usar en pedidos sin confirmar, cancelados, enviados ni entregados. Administradores o vendedores con el permiso update_item_status.",
+                "operationId": "4f5a6dd9e5862efcba25f55ceea091cc",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto dentro del pedido (order_items.id)",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "done",
+                                        "enum": [
+                                            "in_production",
+                                            "done",
+                                            "packed",
+                                            "shipped"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Estado del producto actualizado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No tenés permiso para realizar esta acción."
+                    },
+                    "404": {
+                        "description": "Producto del pedido no encontrado."
+                    },
+                    "422": {
+                        "description": "Estado inválido o cambio no permitido."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/orders/{id}/payments": {
             "get": {
                 "tags": [
@@ -855,8 +1229,8 @@
                 "tags": [
                     "Pagos"
                 ],
-                "summary": "Subir comprobante de pago",
-                "description": "El dueño del pedido sube el comprobante de la seña o del saldo. El monto lo calcula el sistema. Archivo JPG, PNG o PDF de hasta 2 MB.",
+                "summary": "Subir comprobante de la seña",
+                "description": "El dueño del pedido sube el comprobante de la seña, solo si el pedido está pendiente de pago. El monto lo calcula el sistema y el pedido pasa a comprobante en revisión. Archivo JPG, PNG o PDF de hasta 2 MB.",
                 "operationId": "56177300c44f4d8368a798e9e8b7c4ab",
                 "parameters": [
                     {
@@ -877,18 +1251,9 @@
                         "multipart/form-data": {
                             "schema": {
                                 "required": [
-                                    "type",
                                     "receipt"
                                 ],
                                 "properties": {
-                                    "type": {
-                                        "type": "string",
-                                        "example": "deposit",
-                                        "enum": [
-                                            "deposit",
-                                            "balance"
-                                        ]
-                                    },
                                     "receipt": {
                                         "type": "string",
                                         "format": "binary"
@@ -971,7 +1336,7 @@
                     "Pagos"
                 ],
                 "summary": "Aprobar o rechazar un pago",
-                "description": "Aprueba o rechaza un comprobante pendiente. Si se aprueba una seña y el pedido está pendiente, pasa a confirmed. Requiere el permiso verify_payments.",
+                "description": "Aprueba o rechaza el comprobante de una seña. Si se aprueba, el pedido pasa a confirmado, se calcula la fecha de envío y, si hay que fabricar, empieza la fabricación; si se rechaza, el motivo es obligatorio y el pedido vuelve a pendiente de pago. Requiere el permiso verify_payments.",
                 "operationId": "a2430eb8f841cfb33dd545acb649ca98",
                 "parameters": [
                     {
@@ -1039,8 +1404,8 @@
                 "tags": [
                     "Pagos"
                 ],
-                "summary": "Registrar saldo pagado en efectivo",
-                "description": "Un vendedor registra que el cliente pagó el saldo en efectivo. Queda aprobado directamente, sin comprobante. Requiere el permiso register_balance_payment.",
+                "summary": "Registrar el pago del saldo",
+                "description": "El vendedor registra que el cliente pagó el saldo al recibir el pedido. El pedido tiene que estar enviado; el pago queda aprobado directamente, sin comprobante, y el pedido pasa a entregado. Requiere el permiso register_balance_payment.",
                 "operationId": "4a556b832025431bc353cf0b8b118a65",
                 "parameters": [
                     {
@@ -1803,8 +2168,8 @@
                 "tags": [
                     "Usuarios"
                 ],
-                "summary": "Activar o desactivar un cliente o vendedor",
-                "description": "Cambia el estado de un cliente o vendedor. Un usuario desactivado no se borra, pero no puede iniciar sesión. Solo administradores.",
+                "summary": "Activar o desactivar un usuario",
+                "description": "Activa o desactiva a un usuario. Un usuario desactivado no se borra, pero no puede iniciar sesión. Los administradores gestionan clientes y vendedores; solo el Super Administrador o un Administrador Propietario pueden gestionar administradores, y un Propietario solo lo desactiva el Super Administrador. El Super Administrador no se puede desactivar.",
                 "operationId": "4daeabd32863e1cdf365ae33124d44a9",
                 "parameters": [
                     {
@@ -2070,6 +2435,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Administradores",
+            "description": "Administradores"
+        },
         {
             "name": "Autenticación",
             "description": "Autenticación"

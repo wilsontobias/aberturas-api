@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\AdminRoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LocalityController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OrderItemController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
@@ -35,10 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/my', [OrderController::class, 'myOrders'])->middleware('permission:view_own_orders');
     Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id');
     Route::get('/orders', [OrderController::class, 'index'])->middleware('permission:view_all_orders');
-    Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id')->middleware('permission:update_item_status');
     Route::patch('/orders/{id}/cancel', [OrderController::class, 'cancel'])->whereNumber('id');
 
     // Seguimiento y Envíos
+    Route::patch('/order-items/{id}/status', [OrderItemController::class, 'updateStatus'])->whereNumber('id')->middleware('permission:update_item_status');
     Route::get('/orders/{id}/tracking', [OrderController::class, 'tracking'])->whereNumber('id');
     Route::patch('/orders/{id}/ship-date', [OrderController::class, 'updateShipDate'])->whereNumber('id')->middleware('permission:edit_ship_date');
 
@@ -51,6 +53,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Solo administradores (el SuperAdmin pasa siempre)
     Route::middleware('role:Administrator')->group(function () {
+        Route::post('/localities', [LocalityController::class, 'store']);
+        Route::put('/localities/{id}', [LocalityController::class, 'update'])->whereNumber('id');
+        Route::delete('/localities/{id}', [LocalityController::class, 'destroy'])->whereNumber('id');
+
         Route::post('/categories', [ProductCategoryController::class, 'store']);
         Route::put('/categories/{id}', [ProductCategoryController::class, 'update']);
         Route::delete('/categories/{id}', [ProductCategoryController::class, 'destroy']);
@@ -69,6 +75,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/users/{id}', [UserController::class, 'update']);
         Route::patch('/users/{id}/status', [UserController::class, 'updateStatus']);
         Route::patch('/users/{id}/type', [UserController::class, 'changeType']);
+
+        Route::put('/users/{id}/admin', [AdminRoleController::class, 'grantAdmin'])->whereNumber('id');
+        Route::delete('/users/{id}/admin', [AdminRoleController::class, 'revokeAdmin'])->whereNumber('id');
+        Route::put('/users/{id}/owner', [AdminRoleController::class, 'grantOwner'])->whereNumber('id');
+        Route::delete('/users/{id}/owner', [AdminRoleController::class, 'revokeOwner'])->whereNumber('id');
 
         Route::get('/users/{id}/permissions', [UserPermissionController::class, 'show']);
         Route::put('/users/{id}/permissions', [UserPermissionController::class, 'update']);

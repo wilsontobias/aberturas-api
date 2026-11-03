@@ -217,8 +217,8 @@ class UserController extends Controller
 
     #[OA\Patch(
         path: '/api/users/{id}/status',
-        summary: 'Activar o desactivar un cliente o vendedor',
-        description: 'Cambia el estado de un cliente o vendedor. Un usuario desactivado no se borra, pero no puede iniciar sesión. Solo administradores.',
+        summary: 'Activar o desactivar un usuario',
+        description: 'Activa o desactiva a un usuario. Un usuario desactivado no se borra, pero no puede iniciar sesión. Los administradores gestionan clientes y vendedores; solo el Super Administrador o un Administrador Propietario pueden gestionar administradores, y un Propietario solo lo desactiva el Super Administrador. El Super Administrador no se puede desactivar.',
         tags: ['Usuarios'],
         security: [['sanctum' => []]],
         parameters: [
@@ -251,10 +251,36 @@ class UserController extends Controller
             ], 404);
         }
 
-        if ($user->userRole->role->name !== 'OperationalUser') {
+        $actor = $request->user();
+        $actor->loadMissing('userRole.role');
+        $actorIsSuper = $actor->userRole->role->name === 'SuperAdmin';
+        $actorIsOwner = $actor->userRole->role->name === 'Administrator' && $actor->userRole->is_owner;
+        $targetRole = $user->userRole->role->name;
+
+        if ($actor->id === $user->id) {
             return response()->json([
-                'message' => 'Desde acá solo se pueden activar o desactivar clientes y vendedores.',
+                'message' => 'No podés activarte ni desactivarte a vos mismo.',
             ], 403);
+        }
+
+        if ($targetRole === 'SuperAdmin') {
+            return response()->json([
+                'message' => 'El Super Administrador no se puede desactivar.',
+            ], 403);
+        }
+
+        if ($targetRole === 'Administrator') {
+            if ($user->userRole->is_owner && !$actorIsSuper) {
+                return response()->json([
+                    'message' => 'Un Administrador Propietario solo puede ser desactivado por el Super Administrador.',
+                ], 403);
+            }
+
+            if (!$actorIsSuper && !$actorIsOwner) {
+                return response()->json([
+                    'message' => 'Solo el Super Administrador o un Administrador Propietario pueden activar o desactivar a un administrador.',
+                ], 403);
+            }
         }
 
         try {

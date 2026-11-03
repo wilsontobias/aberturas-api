@@ -10,7 +10,6 @@ use App\Models\PaymentType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
@@ -18,8 +17,8 @@ class PaymentController extends Controller
 {
     #[OA\Post(
         path: '/api/orders/{id}/payments',
-        summary: 'Subir comprobante de pago',
-        description: 'El dueño del pedido sube el comprobante de la seña o del saldo. El monto lo calcula el sistema. Archivo JPG, PNG o PDF de hasta 2 MB.',
+        summary: 'Subir comprobante de la seña',
+        description: 'El dueño del pedido sube el comprobante de la seña, solo si el pedido está pendiente de pago. El monto lo calcula el sistema y el pedido pasa a comprobante en revisión. Archivo JPG, PNG o PDF de hasta 2 MB.',
         tags: ['Pagos'],
         security: [['sanctum' => []]],
         parameters: [
@@ -30,9 +29,8 @@ class PaymentController extends Controller
             content: new OA\MediaType(
                 mediaType: 'multipart/form-data',
                 schema: new OA\Schema(
-                    required: ['type', 'receipt'],
+                    required: ['receipt'],
                     properties: [
-                        new OA\Property(property: 'type', type: 'string', enum: ['deposit', 'balance'], example: 'deposit'),
                         new OA\Property(property: 'receipt', type: 'string', format: 'binary'),
                     ]
                 )
@@ -64,11 +62,8 @@ class PaymentController extends Controller
 
         try {
             $validated = $request->validate([
-                'type' => ['required', Rule::in(['deposit', 'balance'])],
                 'receipt' => ['bail', 'required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
             ], [
-                'type.required' => 'El tipo de pago es obligatorio.',
-                'type.in' => 'El tipo de pago debe ser deposit o balance.',
                 'receipt.required' => 'El comprobante es obligatorio.',
                 'receipt.file' => 'El comprobante debe ser un archivo.',
                 'receipt.uploaded' => 'No se pudo subir el comprobante. Probá con un archivo de hasta 2 MB.',
@@ -82,63 +77,29 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        if ($order->status->name === 'cancelled') {
+        if ($order->status->name !== 'pending_payment') {
             return response()->json([
-                'message' => 'No se puede pagar un pedido cancelado.',
+                'message' => 'Solo se puede subir el comprobante de la seña mientras el pedido está pendiente de pago.',
             ], 422);
-        }
-
-        $type = $validated['type'];
-
-        $active = fn (string $typeName) => $order->payments->first(
-            fn ($p) => $p->type->name === $typeName && in_array($p->status->name, ['pending', 'approved'], true)
-        );
-
-        if ($type === 'deposit') {
-            if ($order->status->name !== 'pending') {
-                return response()->json([
-                    'message' => 'La seña solo se paga mientras el pedido está pendiente.',
-                ], 422);
-            }
-
-            if ($active('deposit')) {
-                return response()->json([
-                    'message' => 'Ya hay una seña pendiente de revisión o aprobada para este pedido.',
-                ], 422);
-            }
-
-            $amount = $order->deposit_amount;
-        } else {
-            $depositApproved = $order->payments->first(
-                fn ($p) => $p->type->name === 'deposit' && $p->status->name === 'approved'
-            );
-
-            if (!$depositApproved) {
-                return response()->json([
-                    'message' => 'Primero tiene que estar aprobada la seña.',
-                ], 422);
-            }
-
-            if ($active('balance')) {
-                return response()->json([
-                    'message' => 'Ya hay un pago de saldo pendiente de revisión o aprobado para este pedido.',
-                ], 422);
-            }
-
-            $amount = round($order->total - $order->deposit_amount, 2);
         }
 
         $path = $request->file('receipt')->store("receipts/order-{$order->id}", 'local');
 
         try {
-            $payment = Payment::create([
-                'order_id' => $order->id,
-                'payment_type_id' => PaymentType::where('name', $type)->value('id'),
-                'payment_status_id' => PaymentStatus::where('name', 'pending')->value('id'),
-                'amount' => $amount,
-                'receipt_path' => $path,
-                'uploaded_by' => $request->user()->id,
-            ]);
+            $payment = DB::transaction(function () use ($order, $path, $request) {
+                $payment = Payment::create([
+                    'order_id' => $order->id,
+                    'payment_type_id' => PaymentType::where('name', 'deposit')->value('id'),
+                    'payment_status_id' => PaymentStatus::where('name', 'pending')->value('id'),
+                    'amount' => $order->deposit_amount,
+                    'receipt_path' => $path,
+                    'uploaded_by' => $request->user()->id,
+                ]);
+
+                $order->changeStatus('receipt_in_review', $request->user()->id, 'Comprobante de la seña subido.');
+
+                return $payment;
+            });
         } catch (\Throwable $e) {
             Storage::disk('local')->delete($path);
             throw $e;
@@ -147,6 +108,7 @@ class PaymentController extends Controller
         return response()->json([
             'message' => 'Comprobante subido correctamente. Queda pendiente de revisión.',
             'payment' => $payment->load('type', 'status'),
+            'order_status' => 'receipt_in_review',
         ], 201);
     }
 
@@ -241,7 +203,7 @@ class PaymentController extends Controller
     #[OA\Patch(
         path: '/api/payments/{id}/verify',
         summary: 'Aprobar o rechazar un pago',
-        description: 'Aprueba o rechaza un comprobante pendiente. Si se aprueba una seña y el pedido está pendiente, pasa a confirmed. Requiere el permiso verify_payments.',
+        description: 'Aprueba o rechaza el comprobante de una seña. Si se aprueba, el pedido pasa a confirmado, se calcula la fecha de envío y, si hay que fabricar, empieza la fabricación; si se rechaza, el motivo es obligatorio y el pedido vuelve a pendiente de pago. Requiere el permiso verify_payments.',
         tags: ['Pagos'],
         security: [['sanctum' => []]],
         parameters: [
@@ -298,6 +260,12 @@ class PaymentController extends Controller
             ], 422);
         }
 
+        if ($payment->order->status->name !== 'receipt_in_review') {
+            return response()->json([
+                'message' => 'El pedido ya no está esperando la revisión de este comprobante.',
+            ], 422);
+        }
+
         $approved = (bool) $validated['approved'];
 
         DB::transaction(function () use ($payment, $approved, $validated, $request) {
@@ -308,8 +276,13 @@ class PaymentController extends Controller
                 'rejection_reason' => $approved ? null : $validated['rejection_reason'],
             ]);
 
-            if ($approved && $payment->type->name === 'deposit' && $payment->order->status->name === 'pending') {
-                $payment->order->changeStatus('confirmed', $request->user()->id, 'Seña aprobada.');
+            if ($payment->type->name === 'deposit') {
+                if ($approved) {
+                    $payment->order->changeStatus('confirmed', $request->user()->id, 'Seña aprobada.');
+                    $payment->order->startProduction($request->user()->id);
+                } else {
+                    $payment->order->changeStatus('pending_payment', $request->user()->id, 'Comprobante rechazado: ' . $validated['rejection_reason']);
+                }
             }
         });
 
@@ -321,8 +294,8 @@ class PaymentController extends Controller
 
     #[OA\Post(
         path: '/api/orders/{id}/payments/cash',
-        summary: 'Registrar saldo pagado en efectivo',
-        description: 'Un vendedor registra que el cliente pagó el saldo en efectivo. Queda aprobado directamente, sin comprobante. Requiere el permiso register_balance_payment.',
+        summary: 'Registrar el pago del saldo',
+        description: 'El vendedor registra que el cliente pagó el saldo al recibir el pedido. El pedido tiene que estar enviado; el pago queda aprobado directamente, sin comprobante, y el pedido pasa a entregado. Requiere el permiso register_balance_payment.',
         tags: ['Pagos'],
         security: [['sanctum' => []]],
         parameters: [
@@ -346,9 +319,9 @@ class PaymentController extends Controller
             ], 404);
         }
 
-        if ($order->status->name === 'cancelled') {
+        if ($order->status->name !== 'shipped') {
             return response()->json([
-                'message' => 'No se puede registrar un pago en un pedido cancelado.',
+                'message' => 'El saldo se registra cuando el pedido está enviado, al momento de entregarlo.',
             ], 422);
         }
 
@@ -368,23 +341,29 @@ class PaymentController extends Controller
 
         if ($balanceActive) {
             return response()->json([
-                'message' => 'Ya hay un pago de saldo pendiente de revisión o aprobado para este pedido.',
+                'message' => 'Ya hay un pago de saldo registrado para este pedido.',
             ], 422);
         }
 
-        $payment = Payment::create([
-            'order_id' => $order->id,
-            'payment_type_id' => PaymentType::where('name', 'balance')->value('id'),
-            'payment_status_id' => PaymentStatus::where('name', 'approved')->value('id'),
-            'amount' => round($order->total - $order->deposit_amount, 2),
-            'receipt_path' => null,
-            'uploaded_by' => $request->user()->id,
-            'verified_by' => $request->user()->id,
-            'verified_at' => now(),
-        ]);
+        $payment = DB::transaction(function () use ($order, $request) {
+            $payment = Payment::create([
+                'order_id' => $order->id,
+                'payment_type_id' => PaymentType::where('name', 'balance')->value('id'),
+                'payment_status_id' => PaymentStatus::where('name', 'approved')->value('id'),
+                'amount' => $order->balance_amount,
+                'receipt_path' => null,
+                'uploaded_by' => $request->user()->id,
+                'verified_by' => $request->user()->id,
+                'verified_at' => now(),
+            ]);
+
+            $order->changeStatus('delivered', $request->user()->id, 'Saldo pagado. Pedido entregado.');
+
+            return $payment;
+        });
 
         return response()->json([
-            'message' => 'Pago en efectivo registrado correctamente.',
+            'message' => 'Pago del saldo registrado correctamente. El pedido quedó entregado.',
             'payment' => $payment->load('type', 'status', 'verifier:id,name'),
         ], 201);
     }
