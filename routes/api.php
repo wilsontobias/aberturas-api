@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminRoleController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\LocalityController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\OrderController;
@@ -9,7 +10,9 @@ use App\Http\Controllers\OrderItemController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProvinceController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserPermissionController;
 use Illuminate\Support\Facades\Route;
@@ -27,10 +30,19 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Ingresar con Google (OAuth 2.0 con Socialite)
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect']);
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+Route::post('/auth/google/exchange', [GoogleAuthController::class, 'exchange'])->middleware('throttle:20,1');
+
+// Reporte para n8n (protegido con el token compartido de n8n, no con Sanctum)
+Route::get('/reports/daily-summary', [ReportController::class, 'dailySummary'])->middleware('n8n.token');
+
 // Rutas protegidas (piden token)
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/me/profile', [ProfileController::class, 'update']);
 
     // Pedidos
     Route::post('/orders', [OrderController::class, 'store'])->middleware('permission:create_orders');
@@ -42,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Seguimiento y Envíos
     Route::patch('/order-items/{id}/status', [OrderItemController::class, 'updateStatus'])->whereNumber('id')->middleware('permission:update_item_status');
     Route::get('/orders/{id}/tracking', [OrderController::class, 'tracking'])->whereNumber('id');
+    Route::get('/orders/{id}/invoice', [OrderController::class, 'invoice'])->whereNumber('id');
     Route::patch('/orders/{id}/ship-date', [OrderController::class, 'updateShipDate'])->whereNumber('id')->middleware('permission:edit_ship_date');
 
     // Pagos

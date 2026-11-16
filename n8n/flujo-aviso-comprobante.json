@@ -1,0 +1,514 @@
+{
+  "name": "Aberturas - aviso de comprobante subido",
+  "nodes": [
+    {
+      "id": "w1",
+      "name": "Comprobante subido",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "8f0c1a52-3d4e-4b6a-9a31-5c2d7e9b1a01",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "comprobante-subido",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "w2",
+      "name": "Configuración",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        200
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w2-0",
+              "name": "token_esperado",
+              "value": "aberturas-n8n-demo-token",
+              "type": "string"
+            },
+            {
+              "id": "w2-1",
+              "name": "mail_from",
+              "value": "sistema@aberturas.com",
+              "type": "string"
+            },
+            {
+              "id": "w2-2",
+              "name": "mail_vendedor",
+              "value": "vendedor@aberturas.com",
+              "type": "string"
+            },
+            {
+              "id": "w2-3",
+              "name": "monto_alto",
+              "value": 1000000,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w3",
+      "name": "¿Token correcto?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "t1",
+              "leftValue": "={{ $('Comprobante subido').first().json.headers['x-n8n-token'] }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "={{ $json.token_esperado }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w4",
+      "name": "¿Datos completos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d1",
+              "leftValue": "={{ $('Comprobante subido').first().json.body.order_id }}",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d2",
+              "leftValue": "={{ $('Comprobante subido').first().json.body.amount }}",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d3",
+              "leftValue": "={{ $('Comprobante subido').first().json.body.customer.name }}",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w5",
+      "name": "Ordenar datos",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        40
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w5-0",
+              "name": "pedido",
+              "value": "={{ $('Comprobante subido').first().json.body.order_id }}",
+              "type": "number"
+            },
+            {
+              "id": "w5-1",
+              "name": "cliente",
+              "value": "={{ $('Comprobante subido').first().json.body.customer.name }}",
+              "type": "string"
+            },
+            {
+              "id": "w5-2",
+              "name": "email_cliente",
+              "value": "={{ $('Comprobante subido').first().json.body.customer.email }}",
+              "type": "string"
+            },
+            {
+              "id": "w5-3",
+              "name": "monto",
+              "value": "={{ $('Comprobante subido').first().json.body.amount }}",
+              "type": "number"
+            },
+            {
+              "id": "w5-4",
+              "name": "fabricacion",
+              "value": "={{ $('Comprobante subido').first().json.body.requires_manufacturing }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w6",
+      "name": "¿Seña alta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "m1",
+              "leftValue": "={{ $json.monto }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              },
+              "rightValue": "={{ $('Configuración').first().json.monto_alto }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w7",
+      "name": "Prioridad alta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        -40
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w7-0",
+              "name": "prioridad",
+              "value": "alta",
+              "type": "string"
+            },
+            {
+              "id": "w7-1",
+              "name": "etiqueta",
+              "value": "[URGENTE] ",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w8",
+      "name": "Prioridad normal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        120
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w8-0",
+              "name": "prioridad",
+              "value": "normal",
+              "type": "string"
+            },
+            {
+              "id": "w8-1",
+              "name": "etiqueta",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w9",
+      "name": "Armar el aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        40
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const d = $('Ordenar datos').first().json;\nconst money = (n) => '$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });\nconst p = $input.first().json;\n\nconst text = [\n  `${p.etiqueta}Un cliente subió el comprobante de la seña.`,\n  '',\n  `Pedido N.º ${d.pedido}`,\n  `Cliente: ${d.cliente} (${d.email_cliente})`,\n  `Seña a verificar: ${money(d.monto)}`,\n  d.fabricacion ? 'El pedido lleva fabricación.' : 'El pedido sale de stock.',\n  '',\n  'Entrá al sistema > Pedidos para aprobarlo o rechazarlo.',\n].join('\\n');\n\nreturn [{ json: { asunto: `${p.etiqueta}Comprobante nuevo del pedido N.º ${d.pedido}`, text, prioridad: p.prioridad } }];\n"
+      }
+    },
+    {
+      "id": "w10",
+      "name": "Avisar al vendedor",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1920,
+        40
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Configuración').first().json.mail_from }}",
+        "toEmail": "={{ $('Configuración').first().json.mail_vendedor }}",
+        "subject": "={{ $json.asunto }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtp-aberturas",
+          "name": "SMTP Aberturas"
+        }
+      }
+    },
+    {
+      "id": "w11",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2160,
+        40
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, pedido: $('Ordenar datos').first().json.pedido, prioridad: $('Armar el aviso').first().json.prioridad }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "w12",
+      "name": "Responder 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        320
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: \"Token inválido\" }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "w13",
+      "name": "Responder 422",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: \"Faltan datos del pedido\" }) }}",
+        "options": {
+          "responseCode": 422
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Comprobante subido": {
+      "main": [
+        [
+          {
+            "node": "Configuración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuración": {
+      "main": [
+        [
+          {
+            "node": "¿Token correcto?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Token correcto?": {
+      "main": [
+        [
+          {
+            "node": "¿Datos completos?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos completos?": {
+      "main": [
+        [
+          {
+            "node": "Ordenar datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 422",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ordenar datos": {
+      "main": [
+        [
+          {
+            "node": "¿Seña alta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Seña alta?": {
+      "main": [
+        [
+          {
+            "node": "Prioridad alta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prioridad normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prioridad alta": {
+      "main": [
+        [
+          {
+            "node": "Armar el aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prioridad normal": {
+      "main": [
+        [
+          {
+            "node": "Armar el aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar el aviso": {
+      "main": [
+        [
+          {
+            "node": "Avisar al vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar al vendedor": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Argentina/Buenos_Aires"
+  }
+}

@@ -20,6 +20,13 @@ use OpenApi\Attributes as OA;
     bearerFormat: 'Token Sanctum',
     description: 'Token de autenticación generado por Laravel Sanctum.'
 )]
+#[OA\SecurityScheme(
+    securityScheme: 'n8nToken',
+    type: 'apiKey',
+    in: 'header',
+    name: 'X-N8N-Token',
+    description: 'Token compartido con n8n (N8N_TOKEN del .env).'
+)]
 class OpenApi
 {
 }

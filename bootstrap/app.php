@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsurePermission;
+use App\Http\Middleware\EnsureN8nToken;
 use App\Http\Middleware\EnsureRole;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureRole::class,
             'permission' => EnsurePermission::class,
+            'n8n.token' => EnsureN8nToken::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {

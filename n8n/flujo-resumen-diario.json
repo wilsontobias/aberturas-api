@@ -1,0 +1,437 @@
+{
+  "name": "Aberturas - resumen diario de pedidos",
+  "nodes": [
+    {
+      "id": "r1",
+      "name": "Todos los días 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "r2",
+      "name": "Ejecutar a mano",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "r3",
+      "name": "Configuración",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r3-0",
+              "name": "api_url",
+              "value": "http://localhost:8000/api",
+              "type": "string"
+            },
+            {
+              "id": "r3-1",
+              "name": "api_token",
+              "value": "aberturas-n8n-demo-token",
+              "type": "string"
+            },
+            {
+              "id": "r3-2",
+              "name": "mail_from",
+              "value": "sistema@aberturas.com",
+              "type": "string"
+            },
+            {
+              "id": "r3-3",
+              "name": "mail_to",
+              "value": "duenio@aberturas.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "r4",
+      "name": "Calcular la fecha de ayer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000);\nconst fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(ayer);\nreturn [{ json: { ...$input.first().json, fecha } }];\n"
+      }
+    },
+    {
+      "id": "r5",
+      "name": "Pedir el resumen a la API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        100
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.api_url }}/reports/daily-summary",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "date",
+              "value": "={{ $json.fecha }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-Token",
+              "value": "={{ $json.api_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "r6",
+      "name": "¿Hubo movimiento?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        20
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "h1",
+              "leftValue": "={{ $json.summary.new_orders }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            },
+            {
+              "id": "h2",
+              "leftValue": "={{ $json.summary.confirmed_orders }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            },
+            {
+              "id": "h3",
+              "leftValue": "={{ $json.summary.to_ship_today.length }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            },
+            {
+              "id": "h4",
+              "leftValue": "={{ $json.summary.awaiting_review }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "r7",
+      "name": "Armar el resumen completo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -60
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const s = $input.first().json.summary;\nconst money = (n) => '$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });\nconst nombres = {\n  pending_payment: 'Pendiente de pago', receipt_in_review: 'Comprobante en revisión', confirmed: 'Confirmado',\n  in_production: 'En fabricación', finished: 'Terminado', packed: 'Empacado', shipped: 'Enviado',\n  delivered: 'Entregado', cancelled: 'Cancelado',\n};\nconst fecha = (iso) => iso.split('-').reverse().join('/');\n\nconst lineas = [\n  `Resumen de pedidos del ${fecha(s.date)}`,\n  '',\n  `Pedidos creados: ${s.new_orders}`,\n  `Pedidos confirmados: ${s.confirmed_orders}`,\n  `Señas aprobadas: ${s.deposits_approved.count} (${money(s.deposits_approved.amount)})`,\n  `Comprobantes esperando revisión: ${s.awaiting_review}`,\n  '',\n  `Salen hoy (${fecha(s.today)}):`,\n];\nif (s.to_ship_today.length) {\n  for (const o of s.to_ship_today) lineas.push(`  - Pedido N.º ${o.id} (${o.customer})`);\n} else {\n  lineas.push('  - No hay envíos programados para hoy.');\n}\nlineas.push('', 'Pedidos por estado:');\nfor (const [k, n] of Object.entries(s.orders_by_status)) if (n > 0) lineas.push(`  - ${nombres[k] ?? k}: ${n}`);\nif (s.low_stock.length) {\n  lineas.push('', 'Poco stock:');\n  for (const p of s.low_stock) lineas.push(`  - ${p.name}: ${p.stock} u.`);\n}\n\nreturn [{ json: { asunto: `Aberturas - resumen del ${fecha(s.date)}`, text: lineas.join('\\n') } }];\n"
+      }
+    },
+    {
+      "id": "r8",
+      "name": "Armar el resumen tranquilo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        100
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r8-0",
+              "name": "asunto",
+              "value": "=Aberturas - resumen del {{ $json.summary.date.split('-').reverse().join('/') }}",
+              "type": "string"
+            },
+            {
+              "id": "r8-1",
+              "name": "text",
+              "value": "=Ayer no hubo movimiento de pedidos y hoy no salen envíos. Todo tranquilo.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "r9",
+      "name": "Enviar el resumen",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1440,
+        20
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Configuración').first().json.mail_from }}",
+        "toEmail": "={{ $('Configuración').first().json.mail_to }}",
+        "subject": "={{ $json.asunto }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtp-aberturas",
+          "name": "SMTP Aberturas"
+        }
+      }
+    },
+    {
+      "id": "r10",
+      "name": "Armar el aviso de error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        260
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r10-0",
+              "name": "asunto",
+              "value": "Aberturas - no se pudo armar el resumen diario",
+              "type": "string"
+            },
+            {
+              "id": "r10-1",
+              "name": "text",
+              "value": "=No pudimos pedirle el resumen a la API: {{ $json.error?.message ?? 'sin detalle' }}. Revisá que la API esté encendida y que el token coincida con N8N_TOKEN del .env.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "r11",
+      "name": "Enviar el aviso de error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        260
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Configuración').first().json.mail_from }}",
+        "toEmail": "={{ $('Configuración').first().json.mail_to }}",
+        "subject": "={{ $json.asunto }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtp-aberturas",
+          "name": "SMTP Aberturas"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todos los días 8:00": {
+      "main": [
+        [
+          {
+            "node": "Configuración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar a mano": {
+      "main": [
+        [
+          {
+            "node": "Configuración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuración": {
+      "main": [
+        [
+          {
+            "node": "Calcular la fecha de ayer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular la fecha de ayer": {
+      "main": [
+        [
+          {
+            "node": "Pedir el resumen a la API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir el resumen a la API": {
+      "main": [
+        [
+          {
+            "node": "¿Hubo movimiento?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Armar el aviso de error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hubo movimiento?": {
+      "main": [
+        [
+          {
+            "node": "Armar el resumen completo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Armar el resumen tranquilo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar el resumen completo": {
+      "main": [
+        [
+          {
+            "node": "Enviar el resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar el resumen tranquilo": {
+      "main": [
+        [
+          {
+            "node": "Enviar el resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar el aviso de error": {
+      "main": [
+        [
+          {
+            "node": "Enviar el aviso de error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Argentina/Buenos_Aires"
+  }
+}

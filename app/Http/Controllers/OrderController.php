@@ -6,6 +6,7 @@ use App\Models\ItemStatus;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\Product;
+use App\Support\SimplePdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -502,6 +503,170 @@ class OrderController extends Controller
                 Product::where('id', $item->product_id)->increment('stock', $item->quantity);
             }
         }
+    }
+
+    #[OA\Get(
+        path: '/api/orders/{id}/invoice',
+        summary: 'Descargar la boleta del pedido en PDF',
+        description: 'Genera la boleta en PDF con los productos, el total, la seña y el saldo. Está disponible desde que se aprueba la seña y no para pedidos cancelados. La puede descargar su dueño, un administrador o un vendedor con el permiso view_all_orders.',
+        tags: ['Pedidos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', description: 'ID del pedido', in: 'path', required: true, schema: new OA\Schema(type: 'integer', minimum: 1), example: 1),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF de la boleta.'),
+            new OA\Response(response: 401, description: 'No estás autenticado.'),
+            new OA\Response(response: 403, description: 'No podés ver la boleta de este pedido.'),
+            new OA\Response(response: 404, description: 'Pedido no encontrado.'),
+            new OA\Response(response: 422, description: 'La boleta todavía no está disponible.'),
+        ]
+    )]
+    public function invoice(Request $request, string $id)
+    {
+        $order = Order::with('user.customerProfile', 'status', 'locality.province', 'items.product', 'payments.type', 'payments.status')
+            ->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Pedido no encontrado.',
+            ], 404);
+        }
+
+        $viewer = $request->user();
+
+        if ($order->user_id !== $viewer->id && !$this->canViewAll($viewer)) {
+            return response()->json([
+                'message' => 'No podés ver la boleta de este pedido.',
+            ], 403);
+        }
+
+        if ($order->status->name === 'cancelled') {
+            return response()->json([
+                'message' => 'El pedido está cancelado, no tiene boleta.',
+            ], 422);
+        }
+
+        if (in_array($order->status->name, ['pending_payment', 'receipt_in_review'], true)) {
+            return response()->json([
+                'message' => 'La boleta se genera cuando se aprueba la seña.',
+            ], 422);
+        }
+
+        return response($this->buildInvoice($order), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="boleta-pedido-' . $order->id . '.pdf"',
+        ]);
+    }
+
+    private function money($value): string
+    {
+        return '$ ' . number_format((float) $value, 2, ',', '.');
+    }
+
+    private function buildInvoice(Order $order): string
+    {
+        $pdf = new SimplePdf();
+        $left = 50;
+        $right = SimplePdf::WIDTH - 50;
+        $profile = $order->user->customerProfile;
+
+        // Encabezado
+        $pdf->text($left, 60, 'Aberturas', 22, true);
+        $pdf->text($right, 52, 'BOLETA', 16, true, 'right');
+        $pdf->text($right, 68, 'Pedido N.º ' . $order->id, 11, false, 'right');
+        $pdf->text($right, 82, 'Fecha: ' . $order->created_at->format('d/m/Y'), 10, false, 'right');
+        $pdf->line($left, 95, $right, 95, 1);
+
+        // Cliente y entrega
+        $customer = $profile ? trim($profile->first_name . ' ' . $profile->last_name) : $order->user->name;
+        $y = 120;
+        $pdf->text($left, $y, 'Cliente', 10, true);
+        $pdf->text($left, $y + 15, $customer, 10);
+        $pdf->text($left, $y + 29, $order->user->email, 10);
+
+        if ($profile && $profile->phone_1) {
+            $pdf->text($left, $y + 43, 'Tel.: ' . $profile->phone_1, 10);
+        }
+
+        $pdf->text(310, $y, 'Entrega', 10, true);
+        $pdf->text(310, $y + 15, $order->street . ' ' . $order->street_number, 10);
+        $pdf->text(310, $y + 29, $order->locality->name . ', ' . $order->locality->province->name, 10);
+        $pdf->text(310, $y + 43, 'Envío estimado: ' . ($order->estimated_ship_date ? $order->estimated_ship_date->format('d/m/Y') : 'a confirmar'), 10);
+
+        // Tabla de productos
+        $y = 210;
+        $pdf->fillRect($left, $y, $right - $left, 20, 0.9);
+        $pdf->text($left + 6, $y + 14, 'Producto', 10, true);
+        $pdf->text(340, $y + 14, 'Cant.', 10, true, 'right');
+        $pdf->text(430, $y + 14, 'Precio unit.', 10, true, 'right');
+        $pdf->text($right - 6, $y + 14, 'Subtotal', 10, true, 'right');
+        $y += 38;
+
+        foreach ($order->items as $item) {
+            if ($y > 740) {
+                $pdf->addPage();
+                $y = 60;
+            }
+
+            $name = $item->product->name;
+
+            while ($pdf->textWidth($name, 10) > 240 && mb_strlen($name) > 4) {
+                $name = mb_substr($name, 0, -2);
+            }
+
+            if ($name !== $item->product->name) {
+                $name .= '...';
+            }
+
+            $pdf->text($left + 6, $y, $name, 10);
+            $pdf->text(340, $y, (string) $item->quantity, 10, false, 'right');
+            $pdf->text(430, $y, $this->money($item->unit_price), 10, false, 'right');
+            $pdf->text($right - 6, $y, $this->money($item->subtotal), 10, false, 'right');
+            $pdf->text($left + 6, $y + 11, $item->from_stock ? 'De stock' : 'A fabricar', 8);
+            $pdf->line($left, $y + 18, $right, $y + 18, 0.3);
+            $y += 30;
+        }
+
+        // Totales
+        if ($y > 640) {
+            $pdf->addPage();
+            $y = 60;
+        }
+
+        $y += 10;
+        $pdf->text(430, $y, 'Total', 11, true, 'right');
+        $pdf->text($right - 6, $y, $this->money($order->total), 11, true, 'right');
+        $pdf->text(430, $y + 18, 'Seña (' . $order->deposit_percentage . ' %)', 10, false, 'right');
+        $pdf->text($right - 6, $y + 18, $this->money($order->deposit_amount), 10, false, 'right');
+        $pdf->text(430, $y + 34, 'Saldo a pagar al recibir', 10, false, 'right');
+        $pdf->text($right - 6, $y + 34, $this->money($order->balance_amount), 10, false, 'right');
+        $y += 70;
+
+        // Pagos
+        $pdf->text($left, $y, 'Pagos registrados', 10, true);
+        $y += 16;
+        $payments = $order->payments->sortBy('id');
+
+        if ($payments->isEmpty()) {
+            $pdf->text($left, $y, 'Sin pagos registrados.', 9);
+        }
+
+        $typeNames = ['deposit' => 'Seña', 'balance' => 'Saldo'];
+        $statusNames = ['pending' => 'En revisión', 'approved' => 'Aprobado', 'rejected' => 'Rechazado'];
+
+        foreach ($payments as $payment) {
+            $type = $typeNames[$payment->type->name] ?? $payment->type->name;
+            $status = $statusNames[$payment->status->name] ?? $payment->status->name;
+
+            $pdf->text($left, $y, $payment->created_at->format('d/m/Y') . '  ' . $type . '  ' . $this->money($payment->amount) . '  (' . $status . ')', 9);
+            $y += 13;
+        }
+
+        $pdf->line($left, 790, $right, 790, 0.5);
+        $pdf->text(SimplePdf::WIDTH / 2, 806, 'Gracias por tu compra. Este documento es un comprobante del pedido.', 8, false, 'center');
+
+        return $pdf->output();
     }
 
     private function canViewAll($user): bool

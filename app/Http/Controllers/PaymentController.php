@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\DepositApprovedMail;
+use App\Mail\DepositRejectedMail;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\Payment;
 use App\Models\PaymentStatus;
 use App\Models\PaymentType;
+use App\Services\N8nNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
@@ -104,6 +109,8 @@ class PaymentController extends Controller
             Storage::disk('local')->delete($path);
             throw $e;
         }
+
+        app(N8nNotifier::class)->receiptUploaded($order, $payment);
 
         return response()->json([
             'message' => 'Comprobante subido correctamente. Queda pendiente de revisión.',
@@ -286,10 +293,28 @@ class PaymentController extends Controller
             }
         });
 
+        if ($payment->type->name === 'deposit') {
+            $this->notifyCustomer($payment->order, $approved, (string) ($validated['rejection_reason'] ?? ''));
+        }
+
         return response()->json([
             'message' => $approved ? 'Pago aprobado correctamente.' : 'Pago rechazado.',
             'payment' => $payment->fresh()->load('type', 'status', 'verifier:id,name', 'order.status'),
         ], 200);
+    }
+
+    /** Avisa por mail al cliente si se aprobó o se rechazó su comprobante. Si el mail falla, la verificación igual queda hecha. */
+    private function notifyCustomer(Order $order, bool $approved, string $reason): void
+    {
+        try {
+            $order = $order->fresh(['user']);
+
+            Mail::to($order->user->email)->send(
+                $approved ? new DepositApprovedMail($order) : new DepositRejectedMail($order, $reason)
+            );
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo enviar el mail del pedido ' . $order->id . ': ' . $e->getMessage());
+        }
     }
 
     #[OA\Post(

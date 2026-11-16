@@ -1114,6 +1114,51 @@
                 ]
             }
         },
+        "/api/orders/{id}/invoice": {
+            "get": {
+                "tags": [
+                    "Pedidos"
+                ],
+                "summary": "Descargar la boleta del pedido en PDF",
+                "description": "Genera la boleta en PDF con los productos, el total, la seña y el saldo. Está disponible desde que se aprueba la seña y no para pedidos cancelados. La puede descargar su dueño, un administrador o un vendedor con el permiso view_all_orders.",
+                "operationId": "aad593f03ace9eadf1c575141dfa91f2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del pedido",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archivo PDF de la boleta."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "No podés ver la boleta de este pedido."
+                    },
+                    "404": {
+                        "description": "Pedido no encontrado."
+                    },
+                    "422": {
+                        "description": "La boleta todavía no está disponible."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/order-items/{id}/status": {
             "patch": {
                 "tags": [
@@ -1966,6 +2011,45 @@
                 }
             }
         },
+        "/api/reports/daily-summary": {
+            "get": {
+                "tags": [
+                    "Reportes"
+                ],
+                "summary": "Resumen diario de pedidos (para n8n)",
+                "description": "Devuelve los números de un día (por defecto, ayer): pedidos creados, pedidos confirmados, señas aprobadas, pedidos por estado, los envíos que salen hoy y los productos con poco stock. Lo consulta el flujo programado de n8n. No usa el token de Sanctum: pide el encabezado X-N8N-Token con el token compartido que está en el .env (N8N_TOKEN).",
+                "operationId": "e001095022f5a45e7cacf1cd211cc1d7",
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Día a resumir (AAAA-MM-DD). Si no se envía, es ayer.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-11-08"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resumen obtenido correctamente."
+                    },
+                    "401": {
+                        "description": "Token de n8n inválido o ausente."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "n8nToken": []
+                    }
+                ]
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
@@ -2431,6 +2515,12 @@
                 "description": "Token de autenticación generado por Laravel Sanctum.",
                 "bearerFormat": "Token Sanctum",
                 "scheme": "bearer"
+            },
+            "n8nToken": {
+                "type": "apiKey",
+                "description": "Token compartido con n8n (N8N_TOKEN del .env).",
+                "name": "X-N8N-Token",
+                "in": "header"
             }
         }
     },
@@ -2474,6 +2564,10 @@
         {
             "name": "Provincias",
             "description": "Provincias"
+        },
+        {
+            "name": "Reportes",
+            "description": "Reportes"
         },
         {
             "name": "Usuarios",
