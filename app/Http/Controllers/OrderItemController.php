@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
+use App\Services\InvoiceService;
 
 class OrderItemController extends Controller
 {
@@ -102,6 +103,11 @@ class OrderItemController extends Controller
 
             $order->syncStatusFromItems($request->user()->id);
         });
+
+        // Cuando el pedido sale, se emite la boleta y se la mandamos al cliente por mail.
+        if ($order->fresh('status')->status->name === 'shipped') {
+            app(InvoiceService::class)->sendOnShipment($order);
+        }
 
         return response()->json([
             'message' => 'Estado del producto actualizado correctamente.',

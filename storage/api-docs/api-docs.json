@@ -358,6 +358,76 @@
                 ]
             }
         },
+        "/api/auth/google/redirect": {
+            "get": {
+                "tags": [
+                    "Autenticación"
+                ],
+                "summary": "Ingresar con Google (paso 1)",
+                "description": "Redirige al usuario a la pantalla de Google para que elija su cuenta. Se abre desde el navegador, no desde Swagger.",
+                "operationId": "834b00ff528f81d904b6c3a407c3ce11",
+                "responses": {
+                    "302": {
+                        "description": "Redirección a Google."
+                    }
+                }
+            }
+        },
+        "/api/auth/google/callback": {
+            "get": {
+                "tags": [
+                    "Autenticación"
+                ],
+                "summary": "Ingresar con Google (paso 2)",
+                "description": "Es la dirección a la que vuelve Google. Crea o busca al usuario por su email y redirige al front con un código de un solo uso. No se llama a mano.",
+                "operationId": "8abfc58bd78d4f913e4202410305738e",
+                "responses": {
+                    "302": {
+                        "description": "Redirección al front."
+                    }
+                }
+            }
+        },
+        "/api/auth/google/exchange": {
+            "post": {
+                "tags": [
+                    "Autenticación"
+                ],
+                "summary": "Ingresar con Google (paso 3)",
+                "description": "El front cambia el código de un solo uso (vale 60 segundos) por el token de acceso de Sanctum. Devuelve lo mismo que el login.",
+                "operationId": "b97e819cc7cf835a59b3e3e8262f8571",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "example": "abc123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login exitoso."
+                    },
+                    "403": {
+                        "description": "Usuario desactivado."
+                    },
+                    "422": {
+                        "description": "Código inválido, vencido o ya usado."
+                    }
+                }
+            }
+        },
         "/api/localities": {
             "get": {
                 "tags": [
@@ -1120,7 +1190,7 @@
                     "Pedidos"
                 ],
                 "summary": "Descargar la boleta del pedido en PDF",
-                "description": "Genera la boleta en PDF con los productos, el total, la seña y el saldo. Está disponible desde que se aprueba la seña y no para pedidos cancelados. La puede descargar su dueño, un administrador o un vendedor con el permiso view_all_orders.",
+                "description": "Devuelve la boleta en PDF (con número correlativo único, productos, total, seña y saldo). Se emite y se manda por mail al cliente cuando el pedido pasa a enviado; también se puede descargar desde que se aprueba la seña y no para pedidos cancelados. La puede descargar su dueño, un administrador o un vendedor con el permiso view_all_orders.",
                 "operationId": "aad593f03ace9eadf1c575141dfa91f2",
                 "parameters": [
                     {
@@ -1984,6 +2054,74 @@
                     },
                     "404": {
                         "description": "Producto no encontrado."
+                    },
+                    "422": {
+                        "description": "Los datos proporcionados no son válidos."
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/me/profile": {
+            "put": {
+                "tags": [
+                    "Autenticación"
+                ],
+                "summary": "Completar o actualizar mi perfil de cliente",
+                "description": "Guarda nombre, apellido, localidad y teléfonos del cliente. Lo usan los clientes que entraron con Google y todavía no tienen perfil (sin perfil no se pueden crear pedidos).",
+                "operationId": "1d54683b5cf5df05b048b0ce3cacfb39",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "locality_id",
+                                    "phone_1",
+                                    "phone_2"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "María"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Pérez"
+                                    },
+                                    "locality_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "phone_1": {
+                                        "type": "string",
+                                        "example": "3454123456"
+                                    },
+                                    "phone_2": {
+                                        "type": "string",
+                                        "example": "3454654321"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Perfil guardado correctamente."
+                    },
+                    "401": {
+                        "description": "No estás autenticado."
+                    },
+                    "403": {
+                        "description": "Solo los clientes tienen perfil."
                     },
                     "422": {
                         "description": "Los datos proporcionados no son válidos."
