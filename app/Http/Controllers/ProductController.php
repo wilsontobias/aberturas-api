@@ -299,6 +299,30 @@ class ProductController extends Controller
         ], 200);
     }
 
+    #[OA\Get(
+        path: '/api/inactive-products',
+        summary: 'Listar productos desactivados',
+        description: 'Devuelve los productos desactivados, para poder reactivarlos. Solo administradores.',
+        tags: ['Productos'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Productos desactivados obtenidos correctamente.'),
+            new OA\Response(response: 403, description: 'No tenés permiso.'),
+        ]
+    )]
+    public function inactive()
+    {
+        $products = Product::with('category:id,name', 'material:id,name')
+            ->where('status', false)
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'message' => 'Productos desactivados obtenidos correctamente.',
+            'products' => $products,
+        ], 200);
+    }
+
     private function messages(): array
     {
         return [

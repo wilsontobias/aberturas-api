@@ -82,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/products/{id}', [ProductController::class, 'update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
         Route::patch('/products/{id}/stock', [ProductController::class, 'updateStock']);
+        Route::get('/inactive-products', [ProductController::class, 'inactive']);
 
         Route::get('/users', [UserController::class, 'index']);
         Route::get('/users/{id}', [UserController::class, 'show']);
